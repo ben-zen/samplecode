@@ -34,24 +34,6 @@
 #define SINGLE_QUOT '\''
 #define DOUBLE_QUOT '\"'
 
-/* So far, my method of attack for this is to consider comments independently of
- * other enclosures, since you can't use a single char to represent to capture
- * its opening or closing marks; as such, there will be a recursive function to
- * determine if a set of enclosing symbols is unbounded or no; if it is properly
- * bounded, it returns 0, but if it is not, it returns 1. This can work quite
- * simply by having a state in each level of the recursion; you can have it as
- * an integer state set initially as 0, and if at any point an EOF is reached
- * *outside* of the main function, set the failure_state at 1 and break the
- * while() loop, thus causing a return of a failing condition; OR this together
- * with the calling function's failure_state, and voilà it's a test. I don't
- * particularly feel like writing it to also handle returning details about the
- * error, but it'd definitely be possible. I feel like I'd need to have it
- * return a struct in that case, but I can rewrite it to be more complete later.
- *
- * If this were C++, I'd have it construct a string as an exception and throw
- * it.
- */
-
 /* Function declarations */
 int enclosure_test ( char opening_symbol, FILE *input );
 int comment_test ( FILE *input );
@@ -83,11 +65,6 @@ char paired_symbol ( char symbol ) {
   }
   return opposing_symbol;
 }
-
-  /* There is, of course, a problem with this, which is that I need to be sure
-   * not to call it with anything which is not a defined required symbol. That
-   * doesn't strike me as too much of a problem, I don't think.
-   */
 
 int enclosure_test ( char opening_symbol, FILE *input ) {
   int current, comment_check, status = 0;
@@ -132,14 +109,6 @@ int enclosure_test ( char opening_symbol, FILE *input ) {
     }
     if ( status ) break;
   }
-      
-    /* Check character to see if an opening symbol of another enclosure.  If
-     * not, but it is a /, check if character after is * _without_ popping from
-     * stack. If it is, pop said character from input and proceed to
-     * comment_test.  If it is one or the other of these, and it returns a 1, halt
-     * testing and set status to 1, break out of while loop.  Otherwise, read
-     * next character.
-     */
 
   if ( current == EOF ) status = 1;
   return status;
