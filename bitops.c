@@ -21,3 +21,16 @@ unsigned invert (unsigned x, int p, int n) {
 	  (~((x & (~0 << n) << (p + 1 - n)) >> (p + 1 - n))) << (p - n));
   /* Again, not so sure this is correct. */
 }
+
+/* K&R exercise 2-8 */
+unsigned int rightrot (unsigned int x, int n) {
+  /* Returned x rotated by n bits */
+  unsigned int temp = ~(~0 << n) & x;
+  temp = temp << ((sizeof(unsigned int) *8) - n);
+  return (x >> n) | temp;
+}
+
+int main() {
+  unsigned int x, y, z, t, q;
+  
+}
