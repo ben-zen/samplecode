@@ -32,7 +32,6 @@ unsigned setbits (unsigned x, int p, int n, unsigned y) {
    */
   return (x & ~(~(~0 << n) << (p - n))) | ((~(~0 << n) & y) << (p - n));
 }
-/* I *think* this works. It's kinda wonky, though. */
 
 /* K&R exercise 2-7 */
 /* Write a function that returns x with the n bits beginning at the position p
@@ -41,7 +40,6 @@ unsigned setbits (unsigned x, int p, int n, unsigned y) {
 unsigned invert (unsigned x, int p, int n) {
   /* sets n bits right of p to be the inverse of what they were initially. */
   return x ^ ((~(~0 << n)) << (p - n));
-  /* Again, not so sure this is correct. */
 }
 
 /* K&R exercise 2-8 */
@@ -49,7 +47,7 @@ unsigned invert (unsigned x, int p, int n) {
  * positions.
  */
 unsigned int rightrot (unsigned int x, int n) {
-  /* Returned x rotated by n bits */
+  /* Returns x rotated by n bits */
   unsigned int temp = ~(~0 << n) & x;
   temp = temp << ((sizeof(unsigned int) *8) - n);
   return (x >> n) | temp;

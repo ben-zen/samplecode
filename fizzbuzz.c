@@ -16,7 +16,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#import <stdio.h>
+#include <stdio.h>
 
 /* Function declaration */
 int fizz_buzz ( int cap );

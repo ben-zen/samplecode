@@ -23,7 +23,7 @@
  * returns a positive result for your code does *not* mean it will compile ;)
  */
 
-#import <stdio.h>
+#include <stdio.h>
 
 #define OPEN_PAREN  '('
 #define CLOSE_PAREN ')'
