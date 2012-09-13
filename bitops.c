@@ -68,6 +68,7 @@ int main() {
    * z = 1001 0110
    * z = '\x96';
    */
+  z = 5;
   
   /* t is what setbits (x, 5, 3, y) should return, ie
    * t = 0010 0101
@@ -84,4 +85,6 @@ int main() {
   printf ("Actual setbits output: %o\n", setbits (x, 5, 3, y));
   printf ("Expected invert output: %o\n", q);
   printf ("Actual invert output: %o\n", invert (y, 4, 4));
+  printf ("z value: %o\n", z);
+  printf ("z, rotated by 3: %o\n", rightrot (z, 3));
 }
