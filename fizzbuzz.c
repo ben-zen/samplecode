@@ -30,7 +30,8 @@ int main () {
 }
 
 int fizz_buzz ( int cap ) {
-  for ( int i = 1 ; i <= cap ; i++ ) {
+  int i;
+  for ( i = 1 ; i <= cap ; i++ ) {
     switch ( 0 + 1 * ( ! ( i % 3 ) ) + 2 * ( ! ( i % 5 ) ) ) {
       case 0 :
 	printf ("%d\n",i);
