@@ -49,3 +49,32 @@ I'm going to license this under the GNU GPLv3, as is stored in gzipped format in
 the repository; right now, I'm planning on writing it in C and possibly using
 the [GSL (GNU Scientific Library](http://www.gnu.org/software/gsl/).  I may also
 write a separate implementation for GNU Octave.
+
+Considerations for this implementation
+----------
+
+Initially, this was supposed to be a modular implementation, into which any
+number of independent pivot rules could be inserted.  However, after a bit more
+consideration about how different pivot rules work, I decided that the pivot
+rules should simply be included in the main body; they can be surrounded by
+comment blocks if vastly different pivot rules are to be included in the
+function, otherwise I may just write additional separate functions to fit the
+diffferent rules.
+
+General implementation
+----------
+
+simplex:
+
+## Inputs ##
+- vector: objective function (size: n x 1, if using a language that cares about
+  sizes.)
+- matrix: constraints (size: m x n)
+- vector: bfs, basic feasible solution. First m values are nonzero, the rest are
+  zero. (size: n x 1)
+
+## Outputs ##
+- the output is the best solution; the difficult part of this is the vector
+  itself, since the original algorithm involves rearranging variables to
+  maintain the canonical form.
+
