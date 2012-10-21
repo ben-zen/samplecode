@@ -77,4 +77,5 @@ simplex:
 - the output is the best solution; the difficult part of this is the vector
   itself, since the original algorithm involves rearranging variables to
   maintain the canonical form.
+- 
 
