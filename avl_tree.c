@@ -6,107 +6,123 @@
  * integer keys in there for the sake of things.
  */
 
-struct AVL_node {
-  AVL_node * left, right;
-  unsigned short int tree_height;
+#include <stdio.h>
+#include <stdlib.h>
+
+typedef struct AVL_elem {
+  struct AVL_elem * left, * right;
+  short int tree_height;
   int key;
-};
+} AVL_node;
 
 struct Node_list {
-  Node_list * previous, next;
+  struct Node_list * previous, * next;
   AVL_node * location;
 };
 
-AVL_node * insert (int new_key);
-AVL_node * rebalance (AVL_node * current);
 
-/* The key to this is that if abs(left->tree_height - right->tree_height) > 1,
- * pivoting is necessary.  As a matter of fact, if left->tree_height -
- * right->tree_height > 1, then there needs to be a left pivot, and if it's less
- * than -1, there needs to be a left pivot.
- */
+AVL_node * insert (AVL_node * head, int key) {
+  AVL_node * current = head;
 
-
-/* I'm considering writing this as a recursive function, since the non-recursive
- * function requires an extra data structure to manage the parent, grandparent,
- * etc.
- */
-
-AVL_node * insert (AVL_node * head, int new_key) {
-  /* First case to consider is that head is null and we are inserting a new node
-   * right there, since that's the first of two stopping conditions.
-   */
-  if (!head) {
-    AVL_node * new_leaf = (AVL_node *) malloc (sizeof (AVL_node));
-    new_leaf->left = new_leaf->right = 0;
-    new_leaf->key = new_key;
-    new_leaf->tree_height = 1;
-    return new_leaf;
+  if (!current) {
+    current = (AVL_node *) malloc (sizeof (AVL_node));
+    current->left = current->right = 0;
+    tree_height = 1;
+    return current;
   }
-  /* The second case to consider is that the node has actually been found, in
-   * which case no action other than returning the node need be taken, since the
-   * tree height doesn't change at any point, or anything.  There's no good way
-   * to flag this to avoid calling rebalance, though (although it wouldn't need
-   * to do anything.
+  /* All following code may assume that current is actually extant.
    */
-  if (head->key == new_key) {
-    return head;
-  }
-  /* Finally we get into the other, more complicated situations—which are also
-   * more interesting.
-   */
-  if (head->key > new_key) {
-    head->left = insert (head->left, new_key);
+  if (current->key == key) return current;
+
+  if (current->key > key) {
+    AVL_node * left_child = current->left;
+    left_child = insert (left_child, key);
+    current->tree_height = (!(current->right)) ? current->left->tree_height + 1
+      : (current->left->tree_height > current->right->tree_height) ?
+      current->left->tree_height + 1 : current->right->tree_height + 1;
   } else {
-    head->right = insert (head->right, new_key);
+    AVL_node * right_child = current->right;
+    right_child = insert (right_child, key);
+    current->tree_height = (!(current->left)) ? current->right->tree_height + 1
+      : (current->left->tree_height > current->right->tree_height) ?
+      current->left->tree_height + 1 : current->right->tree_height + 1;
   }
-  /* Now there's a situation to consider; we can't know which if either of the
-   * children of this node has information in it without testing, so test with a
-   * switch statement, values between 0 and 3.
-   */
-  switch (0 + 1*(!(head->left)) + 2*(!(head->right))) {
-    case 0:
-      head->tree_height = ((head->left->tree_height > head->right->tree_height)
-                           ? head->left->tree_height : head->right->tree_height
-                           ) + 1 ;
-      break;
-    case 1:
-      head->tree_height = head->right->tree_height + 1;
-      break;
-    case 2:
-      head->tree_height = head->left->tree_height + 1;
-      break;
-    case 3:
-      head->tree_height = 1;
-      break;
+
+  if (current->tree_height > 1) {
+    /* In this case, there *may* be an imbalance.
+     */
+    
   }
-  /* Now that the tree height has been safely determined, given that a key has
-   * been added (probably; all we know is that it was handed down the chain.)
-   * Now it's time to return our current node, since it's filling in for
-   * somebody, somewhere.
-   */
-  return head;
-}
-
-AVL_node * rebalance (AVL_node * current) {
-  int node_states = 1*(!(current->left)) + 2*(!(current->right));
-  if (node_states == 3) return current;
-  if (node_states == 2) {
-    if (current->left->tree_height == 1) return current;
-
-  }
-  if (node_states == 1) {
-    if (current->right->tree_height == 1) return current;
-
-
-  }
-  /* Now the only cases which remain are examples in which both left and right
-   * sub-trees exist.  The first, and simplest case is that they differ by at
-   * most one.
-   */
-  int height_difference = current->left->tree_height -
-    current->right->tree_height;
-  if ((height_difference >= -1) && (height_difference <= 1)) return current;
   
 }
-    
+
+AVL_node * restructure (AVL_node * head) {
+  AVL_node * pivot_top = head, pivot_parent, pivot_child;
+  if (!(pivot_top->right)) {
+    pivot_parent = pivot_top->left;
+  } else if (!(pivot_top->left)) {
+    pivot_parent = pivot_top->right;
+  } else {
+    pivot_parent = ((pivot_top->left->tree_height -
+                     pivot_top->right->tree_height) < -1) ?
+      pivot_top->right : pivot_top->left;
+  }
+  /* At least now we know where the parent node is; this neatly cleans up the
+   * question of "is there just a left node, just a right node, or both?"  Now
+   * to do the same for the child node.
+   */
+  if (!(pivot_parent->right)) {
+    pivot_child = pivot_parent->left;
+  } else if (!(pivot_parent->left)) {
+    pivot_child = pivot_parent->right;
+  } else if (pivot_parent->left->tree_height < pivot_parent->right->tree_height) {
+    pivot_child = pivot_parent->right;
+  } else {
+    pivot_child = pivot_parent->left;
+  }
+  /* The last two are a question of how the rotation will happen—and this holds
+   * an important small truth: if the subtrees are balanced, there is no reason
+   * for this rotation to occur, so I can ignore the equality case.
+   */
+
+  /* Just going to put the four cases here while I think of them. */
+  /* Change to a switch statement, since it's cleaner. */
+  if ((pivot_top->key > pivot_parent->key) && (pivot_parent->key >
+                                               pivot_child->key)) {
+    pivot_top->left = pivot_parent->right;
+    pivot_parent->right = pivot_top;
+    return pivot_parent;
+  }
+
+  if ((pivot_top->key < pivot_parent->key) && (pivot_parent->key <
+                                               pivot_child->key)) {
+    pivot_top->right = pivot_parent->left;
+    pivot_parent->left = pivot_top;
+    return pivot_parent;
+  }
+
+  if ((pivot_top->key > pivot_parent->key) && (pivot_parent->key <
+                                               pivot_child->key)) {
+    pivot_top->left = pivot_child->right;
+    pivot_parent->right = pivot_child->left;
+    pivot_child->left = pivot_parent;
+    pivot_child->right = pivot_top;
+    return pivot_child;
+  }
+
+  if ((pivot_top->key < pivot_parent->key) && (pivot_parent->key >
+                                               pivot_child->key)) {
+    pivot_top->right = pivot_child->left;
+    pivot_parent->left = pivot_child->right;
+    pivot_child->left = pivot_top;
+    pivot_child->right = pivot_parent;
+    return pivot_child;
+  }
+
+  return head;
+  /* This is honestly only here to make the compiler happy, since
+   * the four cases shown above are the only four ways for this
+   * operation to be executed.
+   */
+}
+
