@@ -85,38 +85,32 @@ AVL_node * restructure (AVL_node * head) {
    * for this rotation to occur, so I can ignore the equality case.
    */
 
-  /* Just going to put the four cases here while I think of them. */
-  /* Change to a switch statement, since it's cleaner. */
-  if ((pivot_top->key > pivot_parent->key) && (pivot_parent->key >
-                                               pivot_child->key)) {
-    pivot_top->left = pivot_parent->right;
-    pivot_parent->right = pivot_top;
-    return pivot_parent;
-  }
-
-  if ((pivot_top->key < pivot_parent->key) && (pivot_parent->key <
-                                               pivot_child->key)) {
-    pivot_top->right = pivot_parent->left;
-    pivot_parent->left = pivot_top;
-    return pivot_parent;
-  }
-
-  if ((pivot_top->key > pivot_parent->key) && (pivot_parent->key <
-                                               pivot_child->key)) {
-    pivot_top->left = pivot_child->right;
-    pivot_parent->right = pivot_child->left;
-    pivot_child->left = pivot_parent;
-    pivot_child->right = pivot_top;
-    return pivot_child;
-  }
-
-  if ((pivot_top->key < pivot_parent->key) && (pivot_parent->key >
-                                               pivot_child->key)) {
-    pivot_top->right = pivot_child->left;
-    pivot_parent->left = pivot_child->right;
-    pivot_child->left = pivot_top;
-    pivot_child->right = pivot_parent;
-    return pivot_child;
+  switch (0 + 1*(pivot_top->key < pivot_parent->key) + 2 * (pivot_parent->key <
+                                                            pivot_child->key)) {
+    case 0:
+      pivot_top->left = pivot_parent->right;
+      pivot_parent->right = pivot_top;
+      return pivot_parent;
+      break;
+    case 1:
+      pivot_top->right = pivot_child->left;
+      pivot_parent->left = pivot_child->right;
+      pivot_child->left = pivot_top;
+      pivot_child->right = pivot_parent;
+      return pivot_child;
+      break;
+    case 2:
+      pivot_top->left = pivot_child->right;
+      pivot_parent->right = pivot_child->left;
+      pivot_child->left = pivot_parent;
+      pivot_child->right = pivot_top;
+      return pivot_child;
+      break;
+    case 3:
+      pivot_top->right = pivot_parent->left;
+      pivot_parent->left = pivot_top;
+      return pivot_parent;
+      break;
   }
 
   return head;
