@@ -102,7 +102,7 @@ AVL_node * restructure (AVL_node * head) {
       pivot_top_ltree_height = (!(pivot_top->left)) ? 0 :
         pivot_top->left->tree_height;
       pivot_top_rtree_height = (!(pivot_top->right)) ? 0 :
-        pivot_top->rtree_height;
+        pivot_top->tree_height;
       pivot_top->tree_height = (pivot_top_ltree_height > pivot_top_rtree_height)
         ? pivot_top_ltree_height + 1 : pivot_top_rtree_height + 1;
       pivot_parent->tree_height = (pivot_child->tree_height >
@@ -183,7 +183,7 @@ AVL_node * restructure (AVL_node * head) {
       pivot_top_ltree_height = (!(pivot_top->left)) ? 0 :
         pivot_top->left->tree_height;
       pivot_top_rtree_height = (!(pivot_top->right)) ? 0 :
-        pivot_top->rtree_height;
+        pivot_top->tree_height;
       pivot_top->tree_height = (pivot_top_ltree_height > pivot_top_rtree_height)
         ? pivot_top_ltree_height + 1 : pivot_top_rtree_height + 1;
       pivot_parent->tree_height = (pivot_child->tree_height >
@@ -204,6 +204,7 @@ AVL_node * restructure (AVL_node * head) {
    */
 }
 
+/*
 AVL_node * remove (AVL_node * head, int key) {
   if (!head) return head;
   if (head->key > key) {
@@ -239,11 +240,12 @@ AVL_node * remove (AVL_node * head, int key) {
         return new_head;
         break;
       case 3:
-        /* In this case, the node has no children, so return NULL. */
+        /* In this case, the node has no children, so return NULL. *
         free ((void *) head);
         return (AVL_node *) 0;
     }
 }
+*/
 
 int main () {
   AVL_node * root = 0;
