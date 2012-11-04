@@ -4,6 +4,10 @@
 
 /* Just an example AVL tree implementation which stores ... well, let's put
  * integer keys in there for the sake of things.
+ *
+ * While using an int to maintain the tree height is not *ideal*, as it offers
+ * only 30 levels in which to store data, that provides for 2^31-1
+ * nodes. Somehow I'm not particularly worried about that overflowing.
  */
 
 #include <stdio.h>
@@ -14,11 +18,6 @@ typedef struct AVL_elem {
   int tree_height;
   int key;
 } AVL_node;
-
-struct Node_list {
-  struct Node_list * previous, * next;
-  AVL_node * location;
-};
 
 AVL_node * insert (AVL_node *, int);
 AVL_node * restructure (AVL_node *);
@@ -92,31 +91,108 @@ AVL_node * restructure (AVL_node * head) {
    * an important small truth: if the subtrees are balanced, there is no reason
    * for this rotation to occur, so I can ignore the equality case.
    */
-
+  int pivot_top_ltree_height, pivot_top_rtree_height, pivot_parent_ltree_height,
+    pivot_parent_rtree_height;
   switch (0 + 1*(pivot_top->key < pivot_parent->key)
           + 2 * (pivot_parent->key < pivot_child->key)) {
     case 0:
       pivot_top->left = pivot_parent->right;
       pivot_parent->right = pivot_top;
+
+      pivot_top_ltree_height = (!(pivot_top->left)) ? 0 :
+        pivot_top->left->tree_height;
+      pivot_top_rtree_height = (!(pivot_top->right)) ? 0 :
+        pivot_top->rtree_height;
+      pivot_top->tree_height = (pivot_top_ltree_height > pivot_top_rtree_height)
+        ? pivot_top_ltree_height + 1 : pivot_top_rtree_height + 1;
+      pivot_parent->tree_height = (pivot_child->tree_height >
+                                   pivot_top->tree_height) ?
+        pivot_child->tree_height + 1 : pivot_top->tree_height + 1;
+      /* Since the maximal difference between any two tree heights is 2
+       * pre-reordering, in this situation, it doesn't matter that this does not
+       * check more thoroughly. Furthermore, pivot_child did not have any change
+       * to its subtrees.
+       */
+
       return pivot_parent;
       break;
     case 1:
       pivot_top->right = pivot_child->left;
       pivot_parent->left = pivot_child->right;
+
+      /* Now fix the tree heights on each of these. */
+      pivot_top_ltree_height = (!(pivot_top->left)) ? 0 :
+        pivot_top->left->tree_height;
+      pivot_top_rtree_height = (!(pivot_top->right)) ? 0 :
+        pivot_top->right->tree_height;
+      pivot_top->tree_height = (pivot_top_ltree_height > pivot_top_rtree_height)
+        ? pivot_top_ltree_height + 1 : pivot_top_rtree_height + 1;
+      pivot_parent_ltree_height = (!(pivot_parent->left)) ? 0 :
+        pivot_parent->left->tree_height;
+      pivot_parent_rtree_height = (!(pivot_parent->right)) ? 0 :
+        pivot_parent->right->tree_height;
+      pivot_parent->tree_height = (pivot_parent_ltree_height >
+                                   pivot_parent_rtree_height ) ?
+        pivot_parent_ltree_height + 1 : pivot_parent_rtree_height + 1;
+
       pivot_child->left = pivot_top;
       pivot_child->right = pivot_parent;
+
+      pivot_child->tree_height = (pivot_child->left->tree_height >
+                                  pivot_child->right->tree_height) ?
+        pivot_child->left->tree_height + 1 : pivot_child->right->tree_height +
+        1;
+
       return pivot_child;
       break;
     case 2:
       pivot_top->left = pivot_child->right;
       pivot_parent->right = pivot_child->left;
+
+      /* Now to use the same code as from above to correct the nodes' tree
+       * heights.
+       */
+      pivot_top_ltree_height = (!(pivot_top->left)) ? 0 :
+        pivot_top->left->tree_height;
+      pivot_top_rtree_height = (!(pivot_top->right)) ? 0 :
+        pivot_top->right->tree_height;
+      pivot_top->tree_height = (pivot_top_ltree_height > pivot_top_rtree_height)
+        ? pivot_top_ltree_height + 1 : pivot_top_rtree_height + 1;
+      pivot_parent_ltree_height = (!(pivot_parent->left)) ? 0 :
+        pivot_parent->left->tree_height;
+      pivot_parent_rtree_height = (!(pivot_parent->right)) ? 0 :
+        pivot_parent->right->tree_height;
+      pivot_parent->tree_height = (pivot_parent_ltree_height >
+                                   pivot_parent_rtree_height ) ?
+        pivot_parent_ltree_height + 1 : pivot_parent_rtree_height + 1;
+
       pivot_child->left = pivot_parent;
       pivot_child->right = pivot_top;
+
+      pivot_child->tree_height = (pivot_child->left->tree_height >
+                                  pivot_child->right->tree_height) ?
+        pivot_child->left->tree_height + 1 : pivot_child->right->tree_height +
+        1;
+
       return pivot_child;
       break;
     case 3:
       pivot_top->right = pivot_parent->left;
       pivot_parent->left = pivot_top;
+
+      pivot_top_ltree_height = (!(pivot_top->left)) ? 0 :
+        pivot_top->left->tree_height;
+      pivot_top_rtree_height = (!(pivot_top->right)) ? 0 :
+        pivot_top->rtree_height;
+      pivot_top->tree_height = (pivot_top_ltree_height > pivot_top_rtree_height)
+        ? pivot_top_ltree_height + 1 : pivot_top_rtree_height + 1;
+      pivot_parent->tree_height = (pivot_child->tree_height >
+                                   pivot_top->tree_height) ?
+        pivot_child->tree_height + 1 : pivot_top->tree_height + 1;
+      /* This is a copy-paste from above, since the conditions on each are
+       * identical. 
+       */
+
       return pivot_parent;
       break;
   }
@@ -126,6 +202,47 @@ AVL_node * restructure (AVL_node * head) {
    * the four cases shown above are the only four ways for this
    * operation to be executed.
    */
+}
+
+AVL_node * remove (AVL_node * head, int key) {
+  if (!head) return head;
+  if (head->key > key) {
+    head->left = remove (head->left, key);
+  } else if (current->key < key) {
+    head->right = remove (head->right, key);
+  } else {
+    AVL_node *new_head;
+    switch (0 + 1*(!(head->left)) + 2*(!(head->right))) {
+      case 0:
+        {
+          AVL_node * current = head, * replacement, rep_prev;
+          replacement = head->right;
+          rep_prev = current;
+          while (replacement->left) {
+            rep_prev = replacement;
+            replacement = replacement->left;
+          }
+          int replacement_key = replacement->key;
+          head->right = remove (head->right, replacement_key);
+          head->key = replacement_key;
+          
+        }
+        
+      case 1:
+        new_head = head->right;
+        free ((void *) head);
+        return new_head;
+        break;
+      case 2:
+        new_head = head->left;
+        free ((void *) head);
+        return new_head;
+        break;
+      case 3:
+        /* In this case, the node has no children, so return NULL. */
+        free ((void *) head);
+        return (AVL_node *) 0;
+    }
 }
 
 int main () {
