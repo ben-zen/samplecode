@@ -11,7 +11,7 @@
 
 typedef struct AVL_elem {
   struct AVL_elem * left, * right;
-  short int tree_height;
+  int tree_height;
   int key;
 } AVL_node;
 
@@ -20,6 +20,9 @@ struct Node_list {
   AVL_node * location;
 };
 
+AVL_node * insert (AVL_node *, int);
+AVL_node * restructure (AVL_node *);
+
 
 AVL_node * insert (AVL_node * head, int key) {
   AVL_node * current = head;
@@ -27,7 +30,8 @@ AVL_node * insert (AVL_node * head, int key) {
   if (!current) {
     current = (AVL_node *) malloc (sizeof (AVL_node));
     current->left = current->right = 0;
-    tree_height = 1;
+    current->tree_height = 1;
+    current->key = key;
     return current;
   }
   /* All following code may assume that current is actually extant.
@@ -35,14 +39,12 @@ AVL_node * insert (AVL_node * head, int key) {
   if (current->key == key) return current;
 
   if (current->key > key) {
-    AVL_node * left_child = current->left;
-    left_child = insert (left_child, key);
+    current->left = insert (current->left, key);
     current->tree_height = (!(current->right)) ? current->left->tree_height + 1
       : (current->left->tree_height > current->right->tree_height) ?
       current->left->tree_height + 1 : current->right->tree_height + 1;
   } else {
-    AVL_node * right_child = current->right;
-    right_child = insert (right_child, key);
+    current->right = insert (current->right, key);
     current->tree_height = (!(current->left)) ? current->right->tree_height + 1
       : (current->left->tree_height > current->right->tree_height) ?
       current->left->tree_height + 1 : current->right->tree_height + 1;
@@ -51,13 +53,19 @@ AVL_node * insert (AVL_node * head, int key) {
   if (current->tree_height > 1) {
     /* In this case, there *may* be an imbalance.
      */
-    
+    int left_subtree_height = 0, right_subtree_height = 0, height_difference;
+    if (current->left) left_subtree_height = current->left->tree_height;
+    if (current->right) right_subtree_height = current->right->tree_height;
+    height_difference = left_subtree_height - right_subtree_height;
+    if ((height_difference < -1) || (height_difference > 1)) {
+      current = restructure (current);
+    }
   }
-  
+  return current;
 }
 
 AVL_node * restructure (AVL_node * head) {
-  AVL_node * pivot_top = head, pivot_parent, pivot_child;
+  AVL_node * pivot_top = head, * pivot_parent, * pivot_child;
   if (!(pivot_top->right)) {
     pivot_parent = pivot_top->left;
   } else if (!(pivot_top->left)) {
@@ -85,8 +93,8 @@ AVL_node * restructure (AVL_node * head) {
    * for this rotation to occur, so I can ignore the equality case.
    */
 
-  switch (0 + 1*(pivot_top->key < pivot_parent->key) + 2 * (pivot_parent->key <
-                                                            pivot_child->key)) {
+  switch (0 + 1*(pivot_top->key < pivot_parent->key)
+          + 2 * (pivot_parent->key < pivot_child->key)) {
     case 0:
       pivot_top->left = pivot_parent->right;
       pivot_parent->right = pivot_top;
@@ -119,4 +127,16 @@ AVL_node * restructure (AVL_node * head) {
    * operation to be executed.
    */
 }
+
+int main () {
+  AVL_node * root = 0;
+  root = insert (root, 5);
+  printf ("%d\n", root->key);
+  root = insert (root, 7);
+  /*  root = insert (root, 3);*/
+  root = insert (root, 8);
+  printf ("%d\n", root->key);
+  return 0;
+}
+  
 
