@@ -232,11 +232,9 @@ AVL_node * remove_node (AVL_node * head, int key) {
     switch (0 + 1*(!(head->left)) + 2*(!(head->right))) {
       case 0:
         {
-          AVL_node * replacement, * rep_prev;
+          AVL_node * replacement;
           replacement = head->right;
-          rep_prev = head;
           while (replacement->left) {
-            rep_prev = replacement;
             replacement = replacement->left;
           }
           int replacement_key = replacement->key;
