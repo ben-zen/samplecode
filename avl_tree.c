@@ -19,11 +19,16 @@ typedef struct AVL_elem {
   int key;
 } AVL_node;
 
-AVL_node * insert (AVL_node *, int);
+AVL_node * insert_node (AVL_node *, int);
 AVL_node * restructure (AVL_node *);
-AVL_node * remove_node (AVL_node * head, int key);
+AVL_node * remove_node (AVL_node *, int);
 
-AVL_node * insert (AVL_node * head, int key) {
+/* Add a height computation method, rename tree_height to height, because
+ * tree_height is a bad name.  Furthermore, add considerations for when the node
+ * is not found in remove_node().
+ */
+
+AVL_node * insert_node (AVL_node * head, int key) {
   AVL_node * current = head;
 
   if (!current) {
@@ -38,12 +43,12 @@ AVL_node * insert (AVL_node * head, int key) {
   if (current->key == key) return current;
 
   if (current->key > key) {
-    current->left = insert (current->left, key);
+    current->left = insert_node (current->left, key);
     current->tree_height = (!(current->right)) ? current->left->tree_height + 1
       : (current->left->tree_height > current->right->tree_height) ?
       current->left->tree_height + 1 : current->right->tree_height + 1;
   } else {
-    current->right = insert (current->right, key);
+    current->right = insert_node (current->right, key);
     current->tree_height = (!(current->left)) ? current->right->tree_height + 1
       : (current->left->tree_height > current->right->tree_height) ?
       current->left->tree_height + 1 : current->right->tree_height + 1;
@@ -268,13 +273,13 @@ AVL_node * remove_node (AVL_node * head, int key) {
 
 int main () {
   AVL_node * root = 0;
-  root = insert (root, 5);
+  root = insert_node (root, 5);
   printf ("(%d, %d)\n", root->key, root->tree_height);
 
-  root = insert (root, 7);
+  root = insert_node (root, 7);
   printf ("(%d, %d)\n", root->key, root->tree_height);
-  /*  root = insert (root, 3);*/
-  root = insert (root, 8);
+  /*  root = insert_node (root, 3);*/
+  root = insert_node (root, 8);
   printf ("(%d, %d)\n", root->key, root->tree_height);
   root = remove_node (root, 7);
   printf ("(%d, %d)\n", root->key, root->tree_height);
