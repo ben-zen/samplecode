@@ -21,7 +21,7 @@ typedef struct AVL_elem {
 
 AVL_node * insert (AVL_node *, int);
 AVL_node * restructure (AVL_node *);
-
+AVL_node * remove_node (AVL_node * head, int key);
 
 AVL_node * insert (AVL_node * head, int key) {
   AVL_node * current = head;
@@ -204,31 +204,51 @@ AVL_node * restructure (AVL_node * head) {
    */
 }
 
-/*
-AVL_node * remove (AVL_node * head, int key) {
+AVL_node * remove_node (AVL_node * head, int key) {
+  int left_subtree_height, right_subtree_height;
   if (!head) return head;
   if (head->key > key) {
-    head->left = remove (head->left, key);
-  } else if (current->key < key) {
-    head->right = remove (head->right, key);
+    head->left = remove_node (head->left, key);
+
+    left_subtree_height = (!(head->left)) ? 0 : head->left->tree_height;
+    right_subtree_height = (!(head->right)) ? 0 : head->right->tree_height;
+
+    head->tree_height = (left_subtree_height > right_subtree_height) ?
+      left_subtree_height + 1 : right_subtree_height + 1;
+
+    return head;
+  } else if (head->key < key) {
+    head->right = remove_node (head->right, key);
+
+    left_subtree_height = (!(head->left)) ? 0 : head->left->tree_height;
+    right_subtree_height = (!(head->right)) ? 0 : head->right->tree_height;
+
+    head->tree_height = (left_subtree_height > right_subtree_height) ?
+      left_subtree_height + 1 : right_subtree_height + 1;
+
+    return head;
   } else {
     AVL_node *new_head;
     switch (0 + 1*(!(head->left)) + 2*(!(head->right))) {
       case 0:
         {
-          AVL_node * current = head, * replacement, rep_prev;
+          AVL_node * replacement, * rep_prev;
           replacement = head->right;
-          rep_prev = current;
+          rep_prev = head;
           while (replacement->left) {
             rep_prev = replacement;
             replacement = replacement->left;
           }
           int replacement_key = replacement->key;
-          head->right = remove (head->right, replacement_key);
+          head->right = remove_node (head->right, replacement_key);
           head->key = replacement_key;
-          
+          left_subtree_height = (!(head->left)) ? 0 : head->left->tree_height;
+          right_subtree_height = (!(head->right)) ? 0 :
+            head->right->tree_height; 
+          head->tree_height = (left_subtree_height > right_subtree_height) ?
+            left_subtree_height + 1 : right_subtree_height + 1;
         }
-        
+        return head;        
       case 1:
         new_head = head->right;
         free ((void *) head);
@@ -240,21 +260,26 @@ AVL_node * remove (AVL_node * head, int key) {
         return new_head;
         break;
       case 3:
-        /* In this case, the node has no children, so return NULL. *
+        /* In this case, the node has no children, so return NULL. */
         free ((void *) head);
         return (AVL_node *) 0;
     }
+  }
+  return (AVL_node *) 0;
 }
-*/
 
 int main () {
   AVL_node * root = 0;
   root = insert (root, 5);
-  printf ("%d\n", root->key);
+  printf ("(%d, %d)\n", root->key, root->tree_height);
+
   root = insert (root, 7);
+  printf ("(%d, %d)\n", root->key, root->tree_height);
   /*  root = insert (root, 3);*/
   root = insert (root, 8);
-  printf ("%d\n", root->key);
+  printf ("(%d, %d)\n", root->key, root->tree_height);
+  root = remove_node (root, 7);
+  printf ("(%d, %d)\n", root->key, root->tree_height);
   return 0;
 }
   
