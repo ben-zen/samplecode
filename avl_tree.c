@@ -4,10 +4,6 @@
 
 /* Just an example AVL tree implementation which stores ... well, let's put
  * integer keys in there for the sake of things.
- *
- * While using an int to maintain the tree height is not *ideal*, as it offers
- * only 30 levels in which to store data, that provides for 2^31-1
- * nodes. Somehow I'm not particularly worried about that overflowing.
  */
 
 #include <stdio.h>
