@@ -24,11 +24,6 @@ AVL_node * restructure (AVL_node *);
 AVL_node * remove_node (AVL_node *, int);
 int compute_height (AVL_node *);
 
-/* Add a height computation method, rename height to height, because
- * height is a bad name.  Furthermore, add considerations for when the node
- * is not found in remove_node().
- */
-
 AVL_node * insert_node (AVL_node * head, int key) {
   AVL_node * current = head;
 
@@ -53,10 +48,10 @@ AVL_node * insert_node (AVL_node * head, int key) {
 
   if (current->height > 1) {
     /* In this case, there *may* be an imbalance. */
-    int left_subheight = 0, right_subheight = 0, height_difference;
-    if (current->left) left_subheight = current->left->height;
-    if (current->right) right_subheight = current->right->height;
-    height_difference = left_subheight - right_subheight;
+    int left_subtree_height = 0, right_subtree_height = 0, height_difference;
+    if (current->left) left_subtree_height = current->left->height;
+    if (current->right) right_subtree_height = current->right->height;
+    height_difference = left_subtree_height - right_subtree_height;
     if ((height_difference < -1) || (height_difference > 1)) {
       current = restructure (current);
     }
@@ -164,13 +159,11 @@ AVL_node * remove_node (AVL_node * head, int key) {
     head->left = remove_node (head->left, key);
 
     head->height = compute_height (head);
-
     return head;
   } else if (head->key < key) {
     head->right = remove_node (head->right, key);
 
     head->height = compute_height (head);
-
     return head;
   } else {
     AVL_node *new_head;
