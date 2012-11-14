@@ -18,6 +18,7 @@ typedef struct AVL_elem {
 AVL_node * insert_node (AVL_node *, int);
 AVL_node * restructure (AVL_node *);
 AVL_node * remove_node (AVL_node *, int);
+AVL_node * find_node (AVL_node *, int);
 int compute_height (AVL_node *);
 
 AVL_node * insert_node (AVL_node * head, int key) {
@@ -194,6 +195,19 @@ AVL_node * remove_node (AVL_node * head, int key) {
     }
   }
   return (AVL_node *) 0;
+}
+
+AVL_node * find_node (AVL_node * head, int key) {
+  if (!head) return 0;
+  if (head->key == key) {
+    return head;
+  } else if (head->key > key) {
+    return find_node (head->left, key);
+  } else {
+    return find_node (head->right, key);
+  }
+  return 0; /* Left in for the compiler's sake, although this may be considered
+             * unreachable by the compiler. */
 }
 
 int compute_height (AVL_node * head) {
