@@ -18,7 +18,7 @@
  * able to construct the full graph.
  */
 
-typedef struct edge_elem edge;
+typedef struct edge_elem edge_node;
 typedef struct markov_elem markov_node;
 
 
@@ -39,13 +39,24 @@ markov_node * markov_head = NULL;
 
 markov_node * find_markov_node (void * content);
 
-splay_node * splay_markov (void * content, markov_node * head,
+markov_node * splay_markov (void * content, markov_node * head,
                            int (* comp) (void *, void *)); 
-int splay_edge (double dec, edge * head);
+edge_node * splay_edge (double dec, edge_node * head);
 
-splay_node * splay_markov (void * content, markov_node * head,
+markov_node * splay_markov (void * content, markov_node * head,
                            int (* comp) (void *, void *)) {
-  /* 
+  /* First situation is if the current node is the one sought; return it.
+   */
+  if (!comp (content, head->content)) {
+    return head;
+  }
+  /* Otherwise, the node is either to be found or *would* be found to one side
+   * or the other of the current node.  The splay operations look like they can
+   * be lifted from the AVL reordering implementations, so I'll try that.
+   *
+   * Alternately, splay operations can simply be run one layer at a time.
+   * Presenting them as multiple-layer operations masks the much less
+   * troublesome nature of general tree operations.
    */
 }
 
