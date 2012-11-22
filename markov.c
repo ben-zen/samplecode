@@ -14,8 +14,9 @@
  * be storing, and a pointer to the first edge out of it.
  */
 
-/* A list of nodes is maintained as well, separate of the others, in order to be
- * able to construct the full graph.
+/* A tree of nodes is maintained as well, separate of the others, in order to be
+ * able to construct the full graph.  This is implemented as a splay tree, to
+ * take advantage of its search abilities.
  */
 
 typedef struct edge_elem edge_node;
@@ -38,7 +39,7 @@ struct edge_elem {
 /* Instantiating the markov chain */
 markov_node * markov_head = NULL;
 
-markov_node * find_markov_node (void * content);
+int find_markov_node (void * content, int (* comp) (void *, void *));
 
 markov_node * splay_markov (void * content, markov_node * head,
                            int (* comp) (void *, void *)); 
@@ -124,6 +125,17 @@ markov_node * splay_markov (void * content, markov_node * head,
   return head;
 }
 
+int find_markov_node (void * content, int (* comp) (void *, void *)) {
+  /* This function is far more for determining a node's presence than for
+  actually returning the location, as each call  */
+  markov_head = splay_markov (content, markov_head, comp);
+  if (!(comp (content, markov_head->content))) {
+    return EXIT_SUCCESS;
+  } /* else */
+  /* The new head is *not* the value sought, so it is not in the graph. */
+  return EXIT_FAILURE;
+}
+
 int create_markov_node (void * content, int (* comp) (void *, void *)) {
   markov_node * current = markov_head;
   while (current)
@@ -136,44 +148,18 @@ int create_markov_node (void * content, int (* comp) (void *, void *)) {
     /* The pointer needs to be assigned for this to happen. */
     if (n_mk_node) {
       n_mk_node->content = content;
-      
-  
-}
+      /* Now, at this stage both left and right children will be null, and it
+       * has no edges.
+       */
+      n_mk_node->left = NULL;
+      n_mk_node->right = NULL;
+      n_mk_node->outbound_edge_list = NULL;
+      /* Now we need to position it in the tree.  Which requires traversing the
+       * tree as it exists currently.
+       */
 
-int add_edge (markov_node * src, markov_node * dest, double dec) {
-  /* Test dec to make sure dec <= 1; if it's greater, this edge is not possible
-   * to begin with.
-   */
-  if (dec <= 1) {
-    edge * new_edge = (edge *) malloc (sizeof (edge));
-    /* Need to add something to handle an OOM. */
-    new_edge->next = NULL
-      new_edge->decoration = dec;
-    new_edge->source = src;
-    new_edge->destination = dest;
-    /* Now, add the edge to the source's edge list. */
-    if (src->outbound_edge_list) {
-      edge * current = src->outbound_edge_list;
-      double prob_sum = 0;
-      while (current->next) {
-        prob_sum += current->decoration;
-        current = current->next;
-      }
-      /* At this point, it has reached the end of the list of edges. */
-      prob_sum += dec;
-      /* Test for acceptable range   */
-      if (prob_sum <= 1) {
-        current->next = new_edge;
-      } else {
-        /* Return a failure state: bad range. */
-      }
-    } else {  
-      /* Otherwise, there was no list to begin with. */
-      src->outbound_edge_list = new_edge;
     }
   }
-  /* else */
-  /* Return a failure state: bad range. */
+  return EXIT_FAILURE;
 }
-
 
