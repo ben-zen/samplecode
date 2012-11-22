@@ -25,6 +25,7 @@ typedef struct markov_elem markov_node;
 struct markov_elem {
   struct markov_elem * left, * right;
   struct splay_node * outbound_edge_list;
+  double outbound_total;
   void * content;
 };
 
@@ -45,19 +46,37 @@ edge_node * splay_edge (double dec, edge_node * head);
 
 markov_node * splay_markov (void * content, markov_node * head,
                            int (* comp) (void *, void *)) {
-  /* First situation is if the current node is the one sought; return it.
+  /* This is splay code that relies on (second arg - first arg) (as a general
+   * idea.) That is, second arg greater than first arg results in positive
+   * value, second arg less than first arg results in negative value, identical
+   * arguments results in 0.
    */
-  if (!comp (content, head->content)) {
-    return head;
-  }
-  /* Otherwise, the node is either to be found or *would* be found to one side
-   * or the other of the current node.  The splay operations look like they can
-   * be lifted from the AVL reordering implementations, so I'll try that.
-   *
-   * Alternately, splay operations can simply be run one layer at a time.
-   * Presenting them as multiple-layer operations masks the much less
-   * troublesome nature of general tree operations.
-   */
+  if (head) {
+    if (!(comp (head->content, content))) {
+      return head;
+    } else if ((comp (head->content, content)) > 0) {
+      if (!(head->right)) {
+        return head;
+      } else {
+        head->right = splay_markov (content, head->right, comp);
+        markov_node * temp = head->right;
+        head->right = temp->left;
+        temp->left = head;
+        return temp;
+      }
+    } else { /* In this case, it's less (to the left). */
+      if (!(head->left)) {
+        return head;
+      } else {
+        head->left = splay_markov (content, head->left, comp);
+        markov_node * temp = head->left;
+        head->left = temp->right;
+        temp->right = head;
+        return temp;
+      }
+    }
+  } /* Else, head was null. */
+  return head;
 }
 
 int create_markov_node (void * content, int (* comp) (void *, void *)) {
