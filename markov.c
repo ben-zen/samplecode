@@ -30,7 +30,7 @@ struct markov_elem {
 };
 
 struct edge_elem {
-  struct edge_elem * left, * right;
+  struct edge_elem * next;
   markov_node * source, * destination;
   double decoration;
 };
@@ -42,7 +42,52 @@ markov_node * find_markov_node (void * content);
 
 markov_node * splay_markov (void * content, markov_node * head,
                            int (* comp) (void *, void *)); 
-edge_node * splay_edge (double dec, edge_node * head);
+int insert_edge (double dec, edge_node ** head, markov_node * src,
+                         markov_node * dest);
+
+int insert_edge (double dec, edge_node ** head, markov_node * src,
+                         markov_node * dest) {
+  if (*head) {
+    edge_node * current = (*head);
+    while (current->next) {
+      if (dec < current->decoration) {
+        current = current->next;
+      } else {
+        break;
+      }
+    }
+    edge_node * temp = (edge_node *) malloc (sizeof (edge_node));
+    /* Just need to check and make sure that there wasn't a problem
+     * instantiating the new node.
+     */
+    if (!temp) {
+      return EXIT_FAILURE; /* Need to pick a better error. */
+    }
+    temp->decoration = dec;
+    temp->source = src;
+    temp->destination = dest;
+    if (current->next) {
+      temp->next = current->next;
+    } else {
+      temp->next = NULL;
+    }
+    current->next = temp;
+  } else { /* Otherwise, head was null and we need to insert a node.  This is
+              simplified by the pointer to a pointer. */
+    edge_node * temp = (edge_node *) malloc (sizeof (edge_node));
+    if (!temp) {
+      return EXIT_FAILURE;
+    }
+    temp->decoration = dec;
+    temp->source = src;
+    temp->destination = dest;
+    temp->next = NULL;
+    (*head) = temp;
+  }
+  /*  */
+  return EXIT_SUCCESS;
+}
+
 
 markov_node * splay_markov (void * content, markov_node * head,
                            int (* comp) (void *, void *)) {
