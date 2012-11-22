@@ -137,13 +137,8 @@ int find_markov_node (void * content, int (* comp) (void *, void *)) {
 }
 
 int create_markov_node (void * content, int (* comp) (void *, void *)) {
-  markov_node * current = markov_head;
-  while (current)
-  if (!markov_head) {
-    markov_head = (markov_node *) malloc (sizeof (markov_node));
-  }
-  /* At this point, if there isn't a node, something went wrong. */
-  if (markov_head) {
+  /* First, splay to determine if the node already exists. */
+  if (find_markov_node (content, comp) == EXIT_FAILURE) {
     markov_node * n_mk_node = (markov_node *) malloc (sizeof (markov_node));
     /* The pointer needs to be assigned for this to happen. */
     if (n_mk_node) {
@@ -157,7 +152,44 @@ int create_markov_node (void * content, int (* comp) (void *, void *)) {
       /* Now we need to position it in the tree.  Which requires traversing the
        * tree as it exists currently.
        */
-
+      markov_node * current = markov_head;
+      if (!current) {
+        markov_head = n_mk_node;
+      } else {
+        /* In this case, we need to find the proper node to insert below, and then
+         * splay.
+         */
+        while ((current->left) || (current->right)) {
+          if (comp (content, current->content) > 0) {
+            /* Should be to the right */
+            if (current->right) {
+              current = current->right;
+              /* Advance to the right in the tree. */
+            } else {
+              /* Otherwise, we can insert the node here and break out of the
+               * loop.
+               */
+              current->right = n_mk_node;
+              break;
+            }
+          } else {
+            /* There is only one "else" case (to the left), since if the node is
+             * ever equal, then the initial "find" operation would have
+             * succeeded.
+             */
+            if (current->left) {
+              current = current->left;
+              /* Advance down and left. */
+            } else {
+              /* Otherwise, insert and break! */
+              current->left = n_mk_node;
+              break;
+            }
+          }
+        }
+        markov_head = splay_markov (content, markov_head, comp);
+      }
+      return EXIT_SUCCESS;
     }
   }
   return EXIT_FAILURE;
