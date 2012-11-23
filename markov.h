@@ -8,3 +8,4 @@ extern int create_markov_node (void * content, int (*comp) (void *, void *));
 extern int add_edge (void * src, void * dest, double dec, int (*comp) (void *,
                                                                        void*));
 extern void * find_next_state (int (*comp) (void *, void *));
+extern int set_initial_state (void * content, int (*comp) (void *, void *));

@@ -98,9 +98,9 @@ markov_node * splay_markov (void * content, markov_node * head,
    * arguments results in 0.
    */
   if (head) {
-    if (!(comp (head->content, content))) {
+    if (!((* comp) (head->content, content))) {
       return head;
-    } else if ((comp (head->content, content)) > 0) {
+    } else if (((* comp) (head->content, content)) > 0) {
       if (!(head->right)) {
         return head;
       } else {
@@ -129,7 +129,7 @@ int find_markov_node (void * content, int (* comp) (void *, void *)) {
   /* This function is far more for determining a node's presence than for
   actually returning the location, as each call  */
   markov_head = splay_markov (content, markov_head, comp);
-  if (!(comp (content, markov_head->content))) {
+  if (!((* comp) (content, markov_head->content))) {
     return EXIT_SUCCESS;
   } /* else */
   /* The new head is *not* the value sought, so it is not in the graph. */
@@ -160,7 +160,7 @@ int create_markov_node (void * content, int (* comp) (void *, void *)) {
          * splay.
          */
         while ((current->left) || (current->right)) {
-          if (comp (content, current->content) > 0) {
+          if ((* comp) (content, current->content) > 0) {
             /* Should be to the right */
             if (current->right) {
               current = current->right;
