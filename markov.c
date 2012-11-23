@@ -195,3 +195,26 @@ int create_markov_node (void * content, int (* comp) (void *, void *)) {
   return EXIT_FAILURE;
 }
 
+void * find_next_state (int (*comp) (void *, void *)) {
+  /* Relies on the initial state having previously been determined. */
+  double prob = (double) rand() / ((double) RAND_MAX);
+  if (prob <= markov_head->outbound_head) {
+    edge_node * current_edge = markov_head->outbound_edge_list;
+    while (current_edge) {
+      if (prob <= current_edge->decoration) {
+        /* As the edges are sorted in maximum to minimum order. */
+        markov_head = splay_markov (current_edge->destination->content,
+                                    markov_head, comp);
+        return markov_head->content;
+      } else {
+        prob -= current_edge->decoration;
+        current_edge = current_edge->next;
+      }
+    }
+  } /* else */
+  /* In this case, the probability fell in the range of the implied edge
+   * pointing back to the node itself; there can also be an explicit node for that,
+   * as well.
+   */
+  return markov_head->content;
+}
