@@ -25,26 +25,36 @@ typedef struct markov_elem markov_node;
 
 struct markov_elem {
   struct markov_elem * left, * right;
-  struct splay_node * outbound_edge_list;
+  struct edge_elem * outbound_edge_list;
   double outbound_total;
   void * content;
 };
 
 struct edge_elem {
   struct edge_elem * next;
-  markov_node * source, * destination;
+  markov_node * destination;
   double decoration;
 };
 
-/* Instantiating the markov chain */
+/* Instantiation of markov_head and compare(). */
 markov_node * markov_head = NULL;
+int (* compare) (void *, void *);
 
-int find_markov_node (void * content, int (* comp) (void *, void *));
+/* Private function prototypes */
+int find_markov_node (void * content);
 
-markov_node * splay_markov (void * content, markov_node * head,
-                           int (* comp) (void *, void *)); 
+markov_node * splay_markov (void * content, markov_node * head); 
 int insert_edge (double dec, edge_node ** head, markov_node * src,
                          markov_node * dest);
+
+/* Functions */
+
+void initialize_markov_node (int (* comp) (void *, void *)) {
+  /* Define compare() as comp() */
+  compare = comp;
+  /* Initialize random number generator */
+  srand (time (NULL));
+}
 
 int insert_edge (double dec, edge_node ** head, markov_node * src,
                          markov_node * dest) {
@@ -90,21 +100,20 @@ int insert_edge (double dec, edge_node ** head, markov_node * src,
 }
 
 
-markov_node * splay_markov (void * content, markov_node * head,
-                           int (* comp) (void *, void *)) {
+markov_node * splay_markov (void * content, markov_node * head) {
   /* This is splay code that relies on (second arg - first arg) (as a general
    * idea.) That is, second arg greater than first arg results in positive
    * value, second arg less than first arg results in negative value, identical
    * arguments results in 0.
    */
   if (head) {
-    if (!((* comp) (head->content, content))) {
+    if (!((* compare) (head->content, content))) {
       return head;
-    } else if (((* comp) (head->content, content)) > 0) {
+    } else if (((* compare) (head->content, content)) > 0) {
       if (!(head->right)) {
         return head;
       } else {
-        head->right = splay_markov (content, head->right, comp);
+        head->right = splay_markov (content, head->right);
         markov_node * temp = head->right;
         head->right = temp->left;
         temp->left = head;
@@ -114,7 +123,7 @@ markov_node * splay_markov (void * content, markov_node * head,
       if (!(head->left)) {
         return head;
       } else {
-        head->left = splay_markov (content, head->left, comp);
+        head->left = splay_markov (content, head->left);
         markov_node * temp = head->left;
         head->left = temp->right;
         temp->right = head;
@@ -125,20 +134,20 @@ markov_node * splay_markov (void * content, markov_node * head,
   return head;
 }
 
-int find_markov_node (void * content, int (* comp) (void *, void *)) {
+int find_markov_node (void * content) {
   /* This function is far more for determining a node's presence than for
   actually returning the location, as each call  */
-  markov_head = splay_markov (content, markov_head, comp);
-  if (!((* comp) (content, markov_head->content))) {
+  markov_head = splay_markov (content, markov_head);
+  if (!((* compare) (content, markov_head->content))) {
     return EXIT_SUCCESS;
   } /* else */
   /* The new head is *not* the value sought, so it is not in the graph. */
   return EXIT_FAILURE;
 }
 
-int create_markov_node (void * content, int (* comp) (void *, void *)) {
+int create_markov_node (void * content) {
   /* First, splay to determine if the node already exists. */
-  if (find_markov_node (content, comp) == EXIT_FAILURE) {
+  if (find_markov_node (content) == EXIT_FAILURE) {
     markov_node * n_mk_node = (markov_node *) malloc (sizeof (markov_node));
     /* The pointer needs to be assigned for this to happen. */
     if (n_mk_node) {
@@ -160,7 +169,7 @@ int create_markov_node (void * content, int (* comp) (void *, void *)) {
          * splay.
          */
         while ((current->left) || (current->right)) {
-          if ((* comp) (content, current->content) > 0) {
+          if ((* compare) (content, current->content) > 0) {
             /* Should be to the right */
             if (current->right) {
               current = current->right;
@@ -187,7 +196,7 @@ int create_markov_node (void * content, int (* comp) (void *, void *)) {
             }
           }
         }
-        markov_head = splay_markov (content, markov_head, comp);
+        markov_head = splay_markov (content, markov_head);
       }
       return EXIT_SUCCESS;
     }
@@ -195,7 +204,7 @@ int create_markov_node (void * content, int (* comp) (void *, void *)) {
   return EXIT_FAILURE;
 }
 
-void * find_next_state (int (*comp) (void *, void *)) {
+void * find_next_state (void) {
   /* Relies on the initial state having previously been determined. */
   double prob = (double) rand() / ((double) RAND_MAX);
   if (prob <= markov_head->outbound_head) {
@@ -204,7 +213,7 @@ void * find_next_state (int (*comp) (void *, void *)) {
       if (prob <= current_edge->decoration) {
         /* As the edges are sorted in maximum to minimum order. */
         markov_head = splay_markov (current_edge->destination->content,
-                                    markov_head, comp);
+                                    markov_head);
         return markov_head->content;
       } else {
         prob -= current_edge->decoration;
@@ -219,10 +228,10 @@ void * find_next_state (int (*comp) (void *, void *)) {
   return markov_head->content;
 }
 
-int set_initial_state (void * content, int (*comp) (void *, void *)) {
+int set_initial_state (void * content) {
   if (markov_head) {
-    markov_head = splay_markov (content, markov_head, comp);
-    if (!((* comp) (content, markov_head->content))) {
+    markov_head = splay_markov (content, markov_head, compare);
+    if (!((* compare) (content, markov_head->content))) {
       return EXIT_SUCCESS;
     }
   }

@@ -4,8 +4,8 @@
  * A general implementation of a Markov chain with decorated edges.
  */
 
-extern int create_markov_node (void * content, int (*comp) (void *, void *));
-extern int add_edge (void * src, void * dest, double dec, int (*comp) (void *,
-                                                                       void*));
-extern void * find_next_state (int (*comp) (void *, void *));
-extern int set_initial_state (void * content, int (*comp) (void *, void *));
+extern int create_markov_node (void * content);
+extern int add_edge (void * src, void * dest, double dec);
+extern void * find_next_state (void);
+extern int set_initial_state (void * content);
+extern void initialize_markov_chain (int (* comp) (void *, void *));
