@@ -218,3 +218,16 @@ void * find_next_state (int (*comp) (void *, void *)) {
    */
   return markov_head->content;
 }
+
+int set_initial_state (void * content, int (*comp) (void *, void *)) {
+  if (markov_head) {
+    markov_head = splay_markov (content, markov_head, comp);
+    if (!((* comp) (content, markov_head->content))) {
+      return EXIT_SUCCESS;
+    }
+  }
+  /* Otherwise the initial state was not set, as requested, so return
+   * failure.
+   */
+  return EXIT_FAILURE;
+}
