@@ -3,6 +3,7 @@
  */
 
 #include <stdlib.h>
+#include <time.h>
 
 /* Two main data structures; every graph node has a list of edges, and each edge
  * node maintains a pointer to each of the graph nodes it is connected to.  In
@@ -75,7 +76,6 @@ int insert_edge (double dec, edge_node ** head, markov_node * src,
       return EXIT_FAILURE; /* Need to pick a better error. */
     }
     temp->decoration = dec;
-    temp->source = src;
     temp->destination = dest;
     if (current->next) {
       temp->next = current->next;
@@ -90,7 +90,6 @@ int insert_edge (double dec, edge_node ** head, markov_node * src,
       return EXIT_FAILURE;
     }
     temp->decoration = dec;
-    temp->source = src;
     temp->destination = dest;
     temp->next = NULL;
     (*head) = temp;
@@ -207,7 +206,7 @@ int create_markov_node (void * content) {
 void * find_next_state (void) {
   /* Relies on the initial state having previously been determined. */
   double prob = (double) rand() / ((double) RAND_MAX);
-  if (prob <= markov_head->outbound_head) {
+  if (prob <= markov_head->outbound_total) {
     edge_node * current_edge = markov_head->outbound_edge_list;
     while (current_edge) {
       if (prob <= current_edge->decoration) {
@@ -230,7 +229,7 @@ void * find_next_state (void) {
 
 int set_initial_state (void * content) {
   if (markov_head) {
-    markov_head = splay_markov (content, markov_head, compare);
+    markov_head = splay_markov (content, markov_head);
     if (!((* compare) (content, markov_head->content))) {
       return EXIT_SUCCESS;
     }
