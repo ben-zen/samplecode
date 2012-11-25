@@ -31,7 +31,7 @@ int main () {
   const char lettuce = 'L';
   const char grapes = 'G';
   initialize_markov_chain (comp_char);
-  create_markov_node ((void *) &cheese);
+  /*  create_markov_node ((void *) &cheese);*/
   create_markov_node ((void *) &lettuce);
   create_markov_node ((void *) &grapes);
   /* Now the fun part begins; here we add the state changes. */
@@ -40,11 +40,25 @@ int main () {
    */
   add_edge ((void *) &cheese, (void *) &lettuce, 0.5);
   add_edge ((void *) &cheese, (void *) &grapes, 0.5);
-  /* If the creature eats lettuce today, tomorrow it will eat grapes with 1/10
+  /* If the creature eats grapes today, tomorrow it will eat grapes with 1/10
    * probability, cheese with 4/10 probability, and lettuce with 5/10
    * probability.
    */
-  
+  add_edge ((void *) &grapes, (void *) &lettuce, 0.5);
+  add_edge ((void *) &grapes, (void *) &cheese, 0.4);
+  /* If the creature eats lettuce today, tomorrow it will either eat grapes with
+   * probability 4/10, or cheese with probability 6/10.
+   */
+  add_edge ((void *) &lettuce, (void *) &grapes, 0.4);
+  add_edge ((void *) &lettuce, (void *) &cheese, 0.6);
+
+  set_initial_state ((void *) &lettuce);
+  char * new_state;
+  int iter;
+  for (iter = 0; iter < 10; iter++) {
+    new_state = (char *) find_next_state ();
+    putc (* new_state, stdout);
+  }
  
   return 0;
 }
