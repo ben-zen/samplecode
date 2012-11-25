@@ -31,5 +31,20 @@ int main () {
   const char lettuce = 'L';
   const char grapes = 'G';
   initialize_markov_chain (comp_char);
+  create_markov_node ((void *) &cheese);
+  create_markov_node ((void *) &lettuce);
+  create_markov_node ((void *) &grapes);
+  /* Now the fun part begins; here we add the state changes. */
+  /* If the creature eats cheese today, tomorrow it will eat either lettuce or
+   * grapes with equal probability.
+   */
+  add_edge ((void *) &cheese, (void *) &lettuce, 0.5);
+  add_edge ((void *) &cheese, (void *) &grapes, 0.5);
+  /* If the creature eats lettuce today, tomorrow it will eat grapes with 1/10
+   * probability, cheese with 4/10 probability, and lettuce with 5/10
+   * probability.
+   */
+  
+ 
   return 0;
 }

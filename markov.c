@@ -45,8 +45,7 @@ int (* compare) (void *, void *);
 int find_markov_node (void * content);
 
 markov_node * splay_markov (void * content, markov_node * head); 
-int insert_edge (double dec, edge_node ** head, markov_node * src,
-                         markov_node * dest);
+int insert_edge (double dec, edge_node ** head, markov_node * dest);
 
 /* Functions */
 
@@ -57,8 +56,7 @@ void initialize_markov_chain (int (* comp) (void *, void *)) {
   srand (time (NULL));
 }
 
-int insert_edge (double dec, edge_node ** head, markov_node * src,
-                         markov_node * dest) {
+int insert_edge (double dec, edge_node ** head, markov_node * dest) {
   if (*head) {
     edge_node * current = (*head);
     while (current->next) {
@@ -137,8 +135,10 @@ int find_markov_node (void * content) {
   /* This function is far more for determining a node's presence than for
   actually returning the location, as each call  */
   markov_head = splay_markov (content, markov_head);
-  if (!((* compare) (content, markov_head->content))) {
-    return EXIT_SUCCESS;
+  if (markov_head) {
+    if (!((* compare) (content, markov_head->content))) {
+      return EXIT_SUCCESS;
+    }
   } /* else */
   /* The new head is *not* the value sought, so it is not in the graph. */
   return EXIT_FAILURE;
@@ -157,6 +157,7 @@ int create_markov_node (void * content) {
       n_mk_node->left = NULL;
       n_mk_node->right = NULL;
       n_mk_node->outbound_edge_list = NULL;
+      n_mk_node->outbound_total = 0;
       /* Now we need to position it in the tree.  Which requires traversing the
        * tree as it exists currently.
        */
@@ -225,6 +226,22 @@ void * find_next_state (void) {
    * as well.
    */
   return markov_head->content;
+}
+
+int add_edge (void * src, void * dest, double dec) {
+  if (dec <= 1) {
+    if (find_markov_node (src) == EXIT_SUCCESS) {
+      markov_node * src_node = markov_head;
+      if (find_markov_node (dest) == EXIT_SUCCESS) {
+          markov_node * dest_node = markov_head;
+          if ((src_node->outbound_total + dec) <= 1) {
+            src_node->outbound_total += dec;
+            return insert_edge (dec, &(src_node->outbound_edge_list), dest_node);
+          }
+      }
+    } 
+  } /* Otherwise it failed. */
+  return EXIT_FAILURE;
 }
 
 int set_initial_state (void * content) {
