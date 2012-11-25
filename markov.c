@@ -50,7 +50,7 @@ int insert_edge (double dec, edge_node ** head, markov_node * src,
 
 /* Functions */
 
-void initialize_markov_node (int (* comp) (void *, void *)) {
+void initialize_markov_chain (int (* comp) (void *, void *)) {
   /* Define compare() as comp() */
   compare = comp;
   /* Initialize random number generator */
