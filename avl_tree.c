@@ -231,6 +231,7 @@ int main () {
   /*  root = insert_node (root, 3);*/
   root = insert_node (root, 8);
   printf ("(%d, %d)\n", root->key, root->height);
+  root = insert_node (root, 3);
   root = remove_node (root, 7);
   printf ("(%d, %d)\n", root->key, root->height);
   return 0;

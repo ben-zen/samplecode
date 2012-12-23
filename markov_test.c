@@ -22,7 +22,7 @@ int comp_char (void *, void *);
 int comp_char (void * left_op, void * right_op) {
   char l_val = (* (char *) left_op);
   char r_val = (* (char *) right_op);
-  return (l_val > r_val) - (l_val < r_val);
+  return (l_val < r_val) - (l_val > r_val);
 }
 
 int main () {
@@ -31,7 +31,7 @@ int main () {
   const char lettuce = 'L';
   const char grapes = 'G';
   initialize_markov_chain (comp_char);
-  /*  create_markov_node ((void *) &cheese);*/
+  create_markov_node ((void *) &cheese);
   create_markov_node ((void *) &lettuce);
   create_markov_node ((void *) &grapes);
   /* Now the fun part begins; here we add the state changes. */

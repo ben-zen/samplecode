@@ -26,7 +26,7 @@ typedef struct markov_elem markov_node;
 
 
 struct markov_elem {
-  struct markov_elem * left, * right;
+  struct markov_elem * next;
   struct edge_elem * outbound_edge_list;
   double outbound_total;
   void * content;
@@ -40,12 +40,12 @@ struct edge_elem {
 
 /* Instantiation of markov_head and compare(). */
 markov_node * markov_head = NULL;
+markov_node * current_state = NULL;
 int (* compare) (void *, void *);
 
 /* Private function prototypes */
-int find_markov_node (void * content);
+markov_node * find_markov_node (void * content);
 
-markov_node * splay_markov (void * content, markov_node * head); 
 int insert_edge (double dec, edge_node ** head, markov_node * dest);
 
 /* Functions */
@@ -97,108 +97,35 @@ int insert_edge (double dec, edge_node ** head, markov_node * dest) {
   return EXIT_SUCCESS;
 }
 
-
-markov_node * splay_markov (void * content, markov_node * head) {
-  /* This is splay code that relies on (second arg - first arg) (as a general
-   * idea.) That is, second arg greater than first arg results in positive
-   * value, second arg less than first arg results in negative value, identical
-   * arguments results in 0.
-   */
-  if (head) {
-    if (!((* compare) (head->content, content))) {
-      return head;
-    } else if (((* compare) (head->content, content)) > 0) {
-      if (!(head->right)) {
-        return head;
-      } else {
-        head->right = splay_markov (content, head->right);
-        markov_node * temp = head->right;
-        head->right = temp->left;
-        temp->left = head;
-        return temp;
-      }
-    } else { /* In this case, it's less (to the left). */
-      if (!(head->left)) {
-        return head;
-      } else {
-        head->left = splay_markov (content, head->left);
-        markov_node * temp = head->left;
-        head->left = temp->right;
-        temp->right = head;
-        return temp;
-      }
+markov_node * find_markov_node (void * content) {
+  markov_node * temp = markov_head;
+  while (temp) {
+    if (((* compare) (content, temp->content)) == 0) {
+      return temp;
     }
-  } /* Else, head was null. */
-  return head;
-}
-
-int find_markov_node (void * content) {
-  /* This function is far more for determining a node's presence than for
-  actually returning the location, as each call  */
-  markov_head = splay_markov (content, markov_head);
-  if (markov_head) {
-    if (!((* compare) (content, markov_head->content))) {
-      return EXIT_SUCCESS;
-    }
-  } /* else */
-  /* The new head is *not* the value sought, so it is not in the graph. */
-  return EXIT_FAILURE;
+  }
+  return NULL;
 }
 
 int create_markov_node (void * content) {
-  /* First, splay to determine if the node already exists. */
-  if (find_markov_node (content) == EXIT_FAILURE) {
+  if (!(find_markov_node (content))) {
     markov_node * n_mk_node = (markov_node *) malloc (sizeof (markov_node));
     /* The pointer needs to be assigned for this to happen. */
     if (n_mk_node) {
       n_mk_node->content = content;
-      /* Now, at this stage both left and right children will be null, and it
-       * has no edges.
-       */
-      n_mk_node->left = NULL;
-      n_mk_node->right = NULL;
+      n_mk_node->next = NULL;
       n_mk_node->outbound_edge_list = NULL;
       n_mk_node->outbound_total = 0;
-      /* Now we need to position it in the tree.  Which requires traversing the
-       * tree as it exists currently.
-       */
       markov_node * current = markov_head;
       if (!current) {
         markov_head = n_mk_node;
       } else {
-        /* In this case, we need to find the proper node to insert below, and then
-         * splay.
-         */
-        while ((current->left) || (current->right)) {
-          if ((* compare) (content, current->content) > 0) {
-            /* Should be to the right */
-            if (current->right) {
-              current = current->right;
-              /* Advance to the right in the tree. */
-            } else {
-              /* Otherwise, we can insert the node here and break out of the
-               * loop.
-               */
-              current->right = n_mk_node;
-              break;
-            }
-          } else {
-            /* There is only one "else" case (to the left), since if the node is
-             * ever equal, then the initial "find" operation would have
-             * succeeded.
-             */
-            if (current->left) {
-              current = current->left;
-              /* Advance down and left. */
-            } else {
-              /* Otherwise, insert and break! */
-              current->left = n_mk_node;
-              break;
-            }
-          }
+        while (current->next) {
+          current = current->next;
         }
-        markov_head = splay_markov (content, markov_head);
+        current->next = n_mk_node;
       }
+      printf ("%c\n", (* ((char *) markov_head->content)));
       return EXIT_SUCCESS;
     }
   }
@@ -209,13 +136,12 @@ void * find_next_state (void) {
   /* Relies on the initial state having previously been determined. */
   double prob = ((double) rand()) / ((double) RAND_MAX);
   printf ("%f3\n",prob);
-  edge_node * current_edge = markov_head->outbound_edge_list;
+  edge_node * current_edge = current_state->outbound_edge_list;
   while (current_edge) {
     if (prob <= current_edge->decoration) {
       /* As the edges are sorted in maximum to minimum order. */
-      markov_head = splay_markov (current_edge->destination->content,
-                                  markov_head);
-      return markov_head->content;
+      current_state = current_edge->destination;
+      return current_state->content;
     } else {
       prob -= current_edge->decoration;
       current_edge = current_edge->next;
@@ -225,19 +151,17 @@ void * find_next_state (void) {
    * pointing back to the node itself; there can also be an explicit node for that,
    * as well.
    */
-  return markov_head->content;
+  return current_state->content;
 }
 
 int add_edge (void * src, void * dest, double dec) {
   if (dec <= 1) {
-    if (find_markov_node (src) == EXIT_SUCCESS) {
-      markov_node * src_node = markov_head;
-      if (find_markov_node (dest) == EXIT_SUCCESS) {
-          markov_node * dest_node = markov_head;
-          if ((src_node->outbound_total + dec) <= 1) {
-            src_node->outbound_total += dec;
-            return insert_edge (dec, &(src_node->outbound_edge_list), dest_node);
-          }
+    markov_node * src_node = find_markov_node (src);
+    markov_node * dest_node = find_markov_node (dest);
+    if (src_node && dest_node) {
+      if ((src_node->outbound_total + dec) <= 1) {
+        src_node->outbound_total += dec;
+        return insert_edge (dec, &(src_node->outbound_edge_list), dest_node);
       }
     } 
   } /* Otherwise it failed. */
@@ -246,8 +170,8 @@ int add_edge (void * src, void * dest, double dec) {
 
 int set_initial_state (void * content) {
   if (markov_head) {
-    markov_head = splay_markov (content, markov_head);
-    if (!((* compare) (content, markov_head->content))) {
+    current_state = find_markov_node (content);
+    if (current_state) {
       return EXIT_SUCCESS;
     }
   }
