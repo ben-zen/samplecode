@@ -50,7 +50,7 @@ let dl_file file_location =
   
 
 
-let start_daemon download_dir =
+let acquire_lock download_dir =
   Unix.chdir download_dir;
   if not (Sys.file_exists "./.dlman.daemon.pid")
   then
