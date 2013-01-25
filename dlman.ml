@@ -1,7 +1,15 @@
 (* Let's make a DL manager with a web interface! *)
+(* Copyright (C) 2013 Ben Lewis <benjf5+bitbucket@gmail.com>,
+   <benjf5+github@gmail.com> *)
+(* Under the LGPLv3 license. *)
+
 (* Uses OcURL and libcurl. *)
 
 (* Uses Unix, Str, String, Buffer, Digest (for now), Curl, and Thread. *)
+
+(* To compile to bytecode: `ocamlc -thread -o dlman unix.cma curl.cma str.cma
+   threads.cma dlman.ml`.  Once I get it worked out better, I'll work up a
+   native code command. *)
 
 (* Requires opening str.cma and curl.cma; curl.cma provides a strange problem
    in that it currently doesn't properly install. *)
@@ -47,8 +55,8 @@ let dl_file file_location =
 
 (* Needs functions to produce a webpage, now that it downloads files. *)
 
-(* let add_download file_location =
-  Thread.create (dl_file file_location) *)
+let add_download file_location =
+  Thread.create dl_file file_location
     (* This function will need to become slightly more complicated, and it will
   need a function around dl_file, since we'll be handling sending output to a
   webpage (if launched), etc. *)
@@ -85,7 +93,8 @@ let send_job download_dir file_location =
   then
       let outpipe = Unix.openfile (download_dir ^ "/.dlman.add")
         [Unix.O_WRONLY] 0o640 in
-      ignore(Unix.write outpipe file_location (String.length file_location) 0);
+      ignore(Unix.write outpipe (file_location ^ "\n") (String.length
+                                                          file_location + 1) 0);
       Unix.close outpipe;
   else
     ignore(print_string "No dlman daemon running in download directory specified!")
@@ -99,8 +108,10 @@ let read_loop download_dir =
     let dest_buffer = Buffer.create 20 in
     while true do
       Buffer.add_string dest_buffer (input_line inchannel);
-      dl_file (Buffer.contents dest_buffer); (* This will be replaced by a
-                                                thread-based add_download method once that is possible. *)
+      ignore (add_download (Buffer.contents dest_buffer)); (* This will be replaced by a
+                                                     thread-based add_download
+                                                     method once that is
+                                                     possible. *)
       Buffer.reset dest_buffer;
     done
   with Unix.Unix_error (err, cmd, loc) ->
@@ -109,10 +120,11 @@ let read_loop download_dir =
    to determine when it should be cancelled. *)
     (* This does not remove the fifo currently. That needs to be resolved. *)
 
-let launch () =
-  let dl_dir = "/home/ben/Downloads" in
-  if (Array.length Sys.argv) > 1 then
-    if (String.compare (Sys.argv.(0)) "--add") = 0 then
+let _ =
+  let dl_dir = "/Users/ben/Downloads" in (* This needs to become loaded from a
+  file. *)
+  if (Array.length Sys.argv) > 2 then
+    if (String.compare (Sys.argv.(1)) "--add") = 0 then
       if (Sys.file_exists (dl_dir ^ "/.dlman.daemon.pid")) then
         for i=1 to ((Array.length Sys.argv) - 1) do
           send_job dl_dir (Sys.argv.(i) ^ "\n")
@@ -122,14 +134,17 @@ let launch () =
     else
       print_string "Incorrect invocation of dlman.\n"
   else
-    if (String.compare (Sys.argv.(0)) "--start-daemon") = 0 then
+    if (Array.length Sys.argv) = 2 then
+      let new_thread = add_download Sys.argv.(1) in
+      print_string "Waiting on download . . .\n";
+      Thread.join new_thread;
+      print_string "Finished waiting.\n"
+    else if (String.compare (Sys.argv.(1)) "--start-daemon") = 0 then
       let daemon_lock = acquire_lock dl_dir in
       if daemon_lock = 0 then
         read_loop dl_dir
       else
-        ()
+        print_string "Unable to start dlman daemon.\n"
     else
-      ()
-(*
-  print_string "Incorrect invocation of dlman.\n" *)
+      print_string "Incorrect invocation of dlman.\n"
     
