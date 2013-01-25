@@ -47,8 +47,8 @@ let dl_file file_location =
 
 (* Needs functions to produce a webpage, now that it downloads files. *)
 
-let add_download file_location =
-  Thread.create (dl_file file_location)
+(* let add_download file_location =
+  Thread.create (dl_file file_location) *)
     (* This function will need to become slightly more complicated, and it will
   need a function around dl_file, since we'll be handling sending output to a
   webpage (if launched), etc. *)
@@ -102,5 +102,24 @@ let read_loop download_dir =
        to determine when it should be cancelled. *)
     (* This does not remove the fifo currently. That needs to be resolved. *)
 
- 
+
+
+let _ =
+  let dl_dir = "/home/ben/Downloads" in
+  if (Array.length Sys.argv) > 1 then
+    if (String.compare (Sys.argv.(0)) "--add") = 0 then
+      if (Sys.file_exists (dl_dir ^ "/.dlman.daemon.pid")) then
+        for i=1 to ((Array.length Sys.argv) - 1) do
+          send_job dl_dir (Sys.argv.(i) ^ "\n")
+        done
+      else
+        print_string "There does not appear to be a dlman daemon running!\n"
+    else
+      print_string "Incorrect invocation of dlman.\n"
+  else
+    if (String.compare (Sys.argv.(0)) "--start-daemon") = 0 then
+      acquire_lock dl_dir;
+  read_loop dl_dir
+(*
+  print_string "Incorrect invocation of dlman.\n" *)
     
