@@ -57,16 +57,21 @@ let acquire_lock download_dir =
   Unix.chdir download_dir;
   if not (Sys.file_exists "./.dlman.daemon.pid")
   then
-    let loc_file = open_out "./.dlman.daemon.pid" in
-    let cpid = Unix.getpid () in
-    let current_pid = string_of_int cpid in
-    output_string loc_file current_pid;
-    close_out loc_file;
+    try
+      let loc_file = open_out "./.dlman.daemon.pid" in
+      let cpid = Unix.getpid () in
+      let current_pid = string_of_int cpid in
+      output_string loc_file current_pid;
+      close_out loc_file;
+      0
+    with Sys_error(n) ->
+      (print_string ("Could not start the daemon.\n"); 1);
+        
   else
-    print_string ( "The lock file, .dlman.daemon.pid, exists in the download " ^
+    (ignore (print_string ( "The lock file, .dlman.daemon.pid, exists in the download " ^
       "directory specified; if there is no currently-running dlman instance, " ^
-      "erase the lock file and start dlman again." );
-    exit 1
+      "erase the lock file and start dlman again." ));
+     1)
       (* In this case, the daemon will not start.  No other action need be
        * performed. *)    
 
@@ -81,30 +86,30 @@ let send_job download_dir file_location =
       let outpipe = Unix.openfile (download_dir ^ "/.dlman.add")
         [Unix.O_WRONLY] 0o640 in
       ignore(Unix.write outpipe file_location (String.length file_location) 0);
-      Unix.close outpipe
+      Unix.close outpipe;
   else
-    print_string "No dlman daemon running in download directory specified!";
-  exit 1
+    ignore(print_string "No dlman daemon running in download directory specified!")
       
 let read_loop download_dir =
-  Unix.mkfifo (download_dir ^ "/.dlman.add") 0o640;
-  let inpipe = Unix.openfile (download_dir ^ "/.dlman.add") [Unix.O_RDONLY]
-    0o640 in
-  let inchannel = Unix.in_channel_of_descr inpipe in
-  let dest_buffer = Buffer.create 20 in
-  while true do
-    Buffer.add_string dest_buffer (input_line inchannel);
-    dl_file (Buffer.contents dest_buffer); (* This will be replaced by a
-  thread-based add_download method once that is possible. *)
-    Buffer.reset dest_buffer;
-  done
-    (* That loop will run forever, at least right now. I should create a method
-       to determine when it should be cancelled. *)
+  try
+    Unix.mkfifo (download_dir ^ "/.dlman.add") 0o640;
+    let inpipe = Unix.openfile (download_dir ^ "/.dlman.add") [Unix.O_RDONLY]
+      0o640 in
+    let inchannel = Unix.in_channel_of_descr inpipe in
+    let dest_buffer = Buffer.create 20 in
+    while true do
+      Buffer.add_string dest_buffer (input_line inchannel);
+      dl_file (Buffer.contents dest_buffer); (* This will be replaced by a
+                                                thread-based add_download method once that is possible. *)
+      Buffer.reset dest_buffer;
+    done
+  with Unix.Unix_error (err, cmd, loc) ->
+    print_string "Unable to launch daemon!\n"
+(* That loop will run forever, at least right now. I should create a method
+   to determine when it should be cancelled. *)
     (* This does not remove the fifo currently. That needs to be resolved. *)
 
-
-
-let _ =
+let launch () =
   let dl_dir = "/home/ben/Downloads" in
   if (Array.length Sys.argv) > 1 then
     if (String.compare (Sys.argv.(0)) "--add") = 0 then
@@ -118,8 +123,13 @@ let _ =
       print_string "Incorrect invocation of dlman.\n"
   else
     if (String.compare (Sys.argv.(0)) "--start-daemon") = 0 then
-      acquire_lock dl_dir;
-  read_loop dl_dir
+      let daemon_lock = acquire_lock dl_dir in
+      if daemon_lock = 0 then
+        read_loop dl_dir
+      else
+        ()
+    else
+      ()
 (*
   print_string "Incorrect invocation of dlman.\n" *)
     
