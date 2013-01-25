@@ -4,7 +4,7 @@
 (* Requires opening str.cma and curl.cma; curl.cma provides a strange problem
    in that it currently doesn't properly install. *)
 
-type file_info = Digest.t * Thread.t
+(* type file_info = Digest.t * Thread.t *)
 
 let determine_progress file_digest connection =
   let total_complete = Curl.get_sizedownload connection
@@ -12,7 +12,7 @@ let determine_progress file_digest connection =
   let current_complete =  string_of_float ((total_complete /. total_size )
   *. 100.0) in
   print_string ("{ file_digest : \"" ^ file_digest ^
-                   "\", complete: " ^ current_complete ^ " }")
+                   "\", complete: " ^ current_complete ^ " }\n")
   (* This will be replaced with sending that to the web page.
   *)
   
@@ -40,10 +40,30 @@ let dl_file file_location =
   Curl.set_url connection file_location;
   Curl.perform connection;
   Curl.cleanup connection;
+  print_string ("Download complete: " ^ file_name);
   close_out file_p
 
-(* let launch_download file_location =
-  Thread.create (dl_file file_location) *)
-
 (* Needs functions to produce a webpage, now that it downloads files. *)
-    
+
+(* let add_download file_location =
+  Thread.create (dl_file file_location) *)
+  
+
+
+let start_daemon download_dir =
+  Unix.chdir download_dir;
+  if not (Sys.file_exists "./.dlman.daemon.pid")
+  then
+    let loc_file = open_out "./.dlman.daemon.pid" in
+    let cpid = Unix.getpid () in
+    let current_pid = string_of_int cpid in
+    output_string loc_file current_pid;
+    close_out loc_file;
+  else
+    print_string ( "The lock file, .dlman.daemon.pid, exists in the download " ^
+      "directory specified; if there is no currently-running dlman instance, " ^
+      "erase the lock file and start dlman again." );
+    exit 1
+      (* In this case, the daemon will not start.  No other action need be
+       * performed. *)    
+  
