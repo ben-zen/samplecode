@@ -1,6 +1,8 @@
 (* Let's make a DL manager with a web interface! *)
 (* Uses OcURL and libcurl. *)
 
+(* Uses Unix, Str, String, Buffer, Digest (for now), Curl, and Thread. *)
+
 (* Requires opening str.cma and curl.cma; curl.cma provides a strange problem
    in that it currently doesn't properly install. *)
 
@@ -45,8 +47,11 @@ let dl_file file_location =
 
 (* Needs functions to produce a webpage, now that it downloads files. *)
 
-(* let add_download file_location =
-  Threads.create (dl_file file_location) *)
+let add_download file_location =
+  Thread.create (dl_file file_location)
+    (* This function will need to become slightly more complicated, and it will
+  need a function around dl_file, since we'll be handling sending output to a
+  webpage (if launched), etc. *)
 
 let acquire_lock download_dir =
   Unix.chdir download_dir;
@@ -96,4 +101,6 @@ let read_loop download_dir =
     (* That loop will run forever, at least right now. I should create a method
        to determine when it should be cancelled. *)
     (* This does not remove the fifo currently. That needs to be resolved. *)
+
+ 
     
