@@ -60,9 +60,9 @@ let dl_file file_location =
 let add_download file_location =
   Thread.create dl_file file_location
       
-    (* This function will need to become slightly more complicated, and it will
-  need a function around dl_file, since we'll be handling sending output to a
-  webpage (if launched), etc. *)
+(* This function will need to become slightly more complicated, and it will
+   need a function around dl_file, since we'll be handling sending output to a
+   webpage (if launched), etc. *)
 
 (* Necessary functionality includes a way to add a download to a
  * currently-running dlman instance, and a web view. Probably also a list of
@@ -118,7 +118,10 @@ let read_loop download_dir =
     Sys.remove "/tmp/dlman_socket"
 (* That loop will run forever, at least right now. I should create a method
    to determine when it should be cancelled. *)
-    (* This does not remove the fifo currently. That needs to be resolved. *)
+
+(* Next step for the server: add the ability to accept signals.  If the proper
+   signal is received, close all downloads and exit.  This will also include
+   tracking open downloads and waiting for completion. *)
 
 let _ =
   Curl.global_init Curl.CURLINIT_GLOBALALL;
