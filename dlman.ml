@@ -61,16 +61,11 @@ let add_download file_location =
   need a function around dl_file, since we'll be handling sending output to a
   webpage (if launched), etc. *)
 
-let acquire_lock download_dir =
+(* let acquire_lock () =
   Unix.chdir download_dir;
   if not (Sys.file_exists "./.dlman.daemon.pid")
   then
     try
-      let loc_file = open_out "./.dlman.daemon.pid" in
-      let cpid = Unix.getpid () in
-      let current_pid = string_of_int cpid in
-      output_string loc_file current_pid;
-      close_out loc_file;
       0
     with Sys_error(n) ->
       (print_string ("Could not start the daemon.\n"); 1);
@@ -82,52 +77,62 @@ let acquire_lock download_dir =
      1)
       (* In this case, the daemon will not start.  No other action need be
        * performed. *)    
-
+*)
 (* Necessary functionality includes a way to add a download to a
  * currently-running dlman instance, and a web view. Probably also a list of
  * active downloads, and later a list of completed downloads.
  *)
 
-let send_job download_dir file_location =
-  if (Sys.file_exists (download_dir ^ "/.dlman.daemon.pid"))
-  then
-      let outpipe = Unix.openfile (download_dir ^ "/.dlman.add")
-        [Unix.O_WRONLY] 0o640 in
-      ignore(Unix.write outpipe (file_location ^ "\n") (String.length
-                                                          file_location + 1) 0);
-      Unix.close outpipe;
-  else
-    ignore(print_string "No dlman daemon running in download directory specified!")
+let send_job file_location =
+  try
+    let dlman_add_sock = Unix.socket Unix.PF_UNIX Unix.SOCK_DGRAM 0 in
+    Unix.connect dlman_add_sock (Unix.ADDR_UNIX("/tmp/dlman_socket"));
+    let msg_len = String.length file_location in
+    let char_mask = (lnot ((lnot 0) lsl 8)) in
+    let msg_len_str = String.make 4 '0' in
+    msg_len_str.[0] <- (char_of_int (char_mask land msg_len));
+    msg_len_str.[1] <- (char_of_int (char_mask land (msg_len lsr 8)));
+    msg_len_str.[2] <- (char_of_int (char_mask land (msg_len lsr 16)));
+    msg_len_str.[3] <- (char_of_int (char_mask land (msg_len lsr 24)));
+    let send_state = Unix.send dlman_add_sock msg_len_str 0 4 [] in
+    ignore (send_state = Unix.send dlman_add_sock file_location 0 msg_len [])
+  with Unix.Unix_error (err, cmd, loc) ->
+    print_string "Failed to send job to daemon."
       
 let read_loop download_dir =
   try
-    Unix.mkfifo (download_dir ^ "/.dlman.add") 0o640;
-    let inpipe = Unix.openfile (download_dir ^ "/.dlman.add") [Unix.O_RDONLY]
-      0o640 in
-    let inchannel = Unix.in_channel_of_descr inpipe in
-    let dest_buffer = Buffer.create 20 in
-    while true do
-      Buffer.add_string dest_buffer (input_line inchannel);
-      ignore (add_download (Buffer.contents dest_buffer)); (* This will be replaced by a
-                                                     thread-based add_download
-                                                     method once that is
-                                                     possible. *)
-      Buffer.reset dest_buffer;
-    done
+    let dlman_sock = Unix.socket Unix.PF_UNIX Unix.SOCK_DGRAM 0 in
+    Unix.bind dlman_sock (Unix.ADDR_UNIX("/tmp/dlman_socket"));
+    Unix.listen dlman_sock 5;
+    let (add_addr, add_sock) = Unix.accept dlman_sock in
+      try
+        while true do
+          let msg_size_str = String.create 4 in
+          ignore (Unix.recv dlman_sock msg_size_str 0 4 []);
+          let msg_size = ((int_of_char msg_size_str.[0]) +
+                             ((int_of_char msg_size_str.[1]) lsl 8) +
+                             ((int_of_char msg_size_str.[2]) lsl 16) + 
+                             ((int_of_char msg_size_str.[3]) lsl 24 )) in
+          let download_request = String.make msg_size '0' in
+          ignore (Unix.recv dlman_sock download_request 0 msg_size []);
+          ignore (add_download download_request)
+        done
+      with Unix.Unix_error (error, cmd, loc) ->
+        print_string "Unable to receive request.\n"
   with Unix.Unix_error (err, cmd, loc) ->
     print_string "Unable to launch daemon!\n"
 (* That loop will run forever, at least right now. I should create a method
    to determine when it should be cancelled. *)
     (* This does not remove the fifo currently. That needs to be resolved. *)
 
-let _ =
-  let dl_dir = "/Users/ben/Downloads" in (* This needs to become loaded from a
+let _ = ()
+(*  let dl_dir = "/Users/ben/Downloads" in (* This needs to become loaded from a
   file. *)
   if (Array.length Sys.argv) > 2 then
     if (String.compare (Sys.argv.(1)) "--add") = 0 then
       if (Sys.file_exists (dl_dir ^ "/.dlman.daemon.pid")) then
         for i=1 to ((Array.length Sys.argv) - 1) do
-          send_job dl_dir (Sys.argv.(i) ^ "\n")
+          send_job (Sys.argv.(i) ^ "\n")
         done
       else
         print_string "There does not appear to be a dlman daemon running!\n"
@@ -146,5 +151,4 @@ let _ =
       else
         print_string "Unable to start dlman daemon.\n"
     else
-      print_string "Incorrect invocation of dlman.\n"
-    
+      print_string "Incorrect invocation of dlman.\n" *)
