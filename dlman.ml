@@ -64,23 +64,6 @@ let add_download file_location =
   need a function around dl_file, since we'll be handling sending output to a
   webpage (if launched), etc. *)
 
-(* let acquire_lock () =
-  Unix.chdir download_dir;
-  if not (Sys.file_exists "./.dlman.daemon.pid")
-  then
-    try
-      0
-    with Sys_error(n) ->
-      (print_string ("Could not start the daemon.\n"); 1);
-        
-  else
-    (ignore (print_string ( "The lock file, .dlman.daemon.pid, exists in the download " ^
-      "directory specified; if there is no currently-running dlman instance, " ^
-      "erase the lock file and start dlman again." ));
-     1)
-      (* In this case, the daemon will not start.  No other action need be
-       * performed. *)    
-*)
 (* Necessary functionality includes a way to add a download to a
  * currently-running dlman instance, and a web view. Probably also a list of
  * active downloads, and later a list of completed downloads.
@@ -100,6 +83,9 @@ let send_job file_location =
     msg_len_str.[3] <- (char_of_int (char_mask land (msg_len lsr 24)));
     ignore (Unix.send dlman_add_sock msg_len_str 0 4 []);
     ignore (Unix.send dlman_add_sock file_location 0 msg_len []);
+    let confirmation_message = String.make 17 '\n' in
+    ignore (Unix.recv dlman_add_sock confirmation_message 0 16 []);
+    print_string confirmation_message;
     Unix.close dlman_add_sock;
     Sys.remove "/tmp/dlman_add_sock"
   with Unix.Unix_error (err, cmd, loc) ->
@@ -120,7 +106,8 @@ let read_loop download_dir =
                              ((int_of_char msg_size_str.[3]) lsl 24 )) in
           let download_request = String.make msg_size '0' in
           ignore (Unix.recv dlman_sock download_request 0 msg_size []);
-          ignore (add_download download_request)
+          ignore (add_download download_request);
+          ignore (Unix.send dlman_sock "Download added.\n" 0 16 []);
         done
       with Unix.Unix_error (error, cmd, loc) ->
         print_string "Unable to receive request.\n"
