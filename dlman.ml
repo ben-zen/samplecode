@@ -41,24 +41,27 @@ let dl_file file_location =
   try 
     let location_list = Str.split (Str.regexp "/") file_location in
     let file_name = List.hd (List.rev location_list) in
-    let file_p = open_out_bin file_name in
+    let file_p = open_out_bin (file_name) in
     let file_digest = Digest.string file_location in
-    let incoming_data = Buffer.create 4096 (* using a simple buffer at the
-                                              moment. This will become configurable. *)
+    let incoming_data = Buffer.create 4096
+    (* using a simple buffer at the moment. This will become configurable. *)
     and connection = Curl.init () in
-    Curl.set_writefunction connection (write_wrapper file_digest connection file_p incoming_data);
+    Curl.set_writefunction connection (write_wrapper file_digest connection
+                                         file_p incoming_data);
     Curl.set_followlocation connection true;
     Curl.set_url connection file_location;
     Curl.perform connection;
     Curl.cleanup connection;
     print_string ("Download complete: " ^ file_name);
-    close_out file_p
-  with Curl.CurlException (_, _, s) -> print_string s
+    close_out file_p;
+    0
+  with Curl.CurlException (_, _, s) -> print_string s; 1
+    
 
 (* Needs functions to produce a webpage, now that it downloads files. *)
 
 let add_download file_location =
-  Thread.create dl_file file_location
+  (Thread.create dl_file file_location)
       
 (* This function will need to become slightly more complicated, and it will
    need a function around dl_file, since we'll be handling sending output to a
@@ -92,12 +95,15 @@ let send_job file_location =
      Printf.eprintf "Error message: %s.\n" (Unix.error_message err);     
      Sys.remove "/tmp/dlman_add_socket")
       
-let read_loop download_dir =
+let read_loop () =
   try
+    let pid_file = open_out "/tmp/dlman.pid" in
+    output_string pid_file ((string_of_int (Unix.getpid ()) ^ "\n"));
+    close_out pid_file;
     let dlman_sock = Unix.socket Unix.PF_UNIX Unix.SOCK_DGRAM 0 in
     Unix.bind dlman_sock (Unix.ADDR_UNIX("/tmp/dlman_socket"));
+    while true do
       try
-        while true do
           let msg_size_str = String.create 4 in
           ignore (Unix.recv dlman_sock msg_size_str 0 4 []);
           let msg_size = ((int_of_char msg_size_str.[0]) +
@@ -106,27 +112,46 @@ let read_loop download_dir =
                              ((int_of_char msg_size_str.[3]) lsl 24 )) in
           let download_request = String.make msg_size '0' in
           ignore (Unix.recv dlman_sock download_request 0 msg_size []);
-          ignore (add_download download_request);
-        done
+          ignore (add_download download_request)
       with Unix.Unix_error (error, cmd, loc) ->
         print_string ("Unable to receive request.  Error generated in " ^ cmd ^
                          ".\n");
         Printf.eprintf "Error code: %s.\n" (Unix.error_message error);
+    done
   with Unix.Unix_error (err, cmd, loc) ->
     print_string ("Unable to launch daemon! Generated error in " ^ cmd ^ ".\n");
     Printf.eprintf "Error code: %s.\n" (Unix.error_message err);
     Sys.remove "/tmp/dlman_socket"
-(* That loop will run forever, at least right now. I should create a method
-   to determine when it should be cancelled. *)
+
 
 (* Next step for the server: add the ability to accept signals.  If the proper
    signal is received, close all downloads and exit.  This will also include
    tracking open downloads and waiting for completion. *)
 
-let _ =
+let initialize () =
   Curl.global_init Curl.CURLINIT_GLOBALALL;
-  let dl_dir = "/Users/ben/Downloads" in (* This needs to become loaded from a
-  file. *)
+  try
+    Sys.set_signal Sys.sigusr1
+      (Sys.Signal_handle(fun x ->
+        try
+          Sys.remove "/tmp/dlman_socket";
+          Sys.remove "/tmp/dlman.pid";
+          print_string "Stopping daemon.\n";
+          ignore (exit 0)
+        with Sys_error (s) ->
+          print_string ("Error in shutdown: " ^ s ^ ". Stopping daemon.\n");
+          ignore (exit 1)))
+  with Invalid_argument (x) ->
+    print_string "Initializing signal failed.\n"
+
+(* let kill_daemon () = *)
+  
+  
+      
+let _ =
+  let dl_dir = "/Users/ben/Downloads/" in
+  Unix.chdir dl_dir;
+  (* This needs to become loaded from a file. *)
   if (Array.length Sys.argv) > 2 then
     if (String.compare (Sys.argv.(1)) "--add") = 0 then
       if (Sys.file_exists ("/tmp/dlman_socket")) then
@@ -140,7 +165,8 @@ let _ =
   else
     if (Array.length Sys.argv) = 2 then
       if (String.compare Sys.argv.(1) "--start-daemon" = 0) then
-        read_loop dl_dir
+        (initialize ();
+        read_loop ())
       else
         let new_thread = add_download Sys.argv.(1) in
         print_string "Waiting on download . . .\n";
