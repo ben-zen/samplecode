@@ -83,14 +83,14 @@ let send_job file_location =
     msg_len_str.[3] <- (char_of_int (char_mask land (msg_len lsr 24)));
     ignore (Unix.send dlman_add_sock msg_len_str 0 4 []);
     ignore (Unix.send dlman_add_sock file_location 0 msg_len []);
-    let confirmation_message = String.make 17 '\n' in
-    ignore (Unix.recv dlman_add_sock confirmation_message 0 16 []);
-    print_string confirmation_message;
+    print_string "Job sent to daemon.\n";
     Unix.close dlman_add_sock;
-    Sys.remove "/tmp/dlman_add_sock"
+    Sys.remove "/tmp/dlman_add_socket"
   with Unix.Unix_error (err, cmd, loc) ->
-    (print_string "Failed to send job to daemon.";
-     Sys.remove "/tmp/dlman_add_sock")
+    (print_string ("Failed to send job to daemon. Generated error in " ^ cmd ^
+                      ".\n");
+     Printf.eprintf "Error message: %s.\n" (Unix.error_message err);     
+     Sys.remove "/tmp/dlman_add_socket")
       
 let read_loop download_dir =
   try
@@ -99,7 +99,7 @@ let read_loop download_dir =
       try
         while true do
           let msg_size_str = String.create 4 in
-          let received_chars = Unix.recv dlman_sock msg_size_str 0 4 [] in
+          ignore (Unix.recv dlman_sock msg_size_str 0 4 []);
           let msg_size = ((int_of_char msg_size_str.[0]) +
                              ((int_of_char msg_size_str.[1]) lsl 8) +
                              ((int_of_char msg_size_str.[2]) lsl 16) + 
@@ -107,13 +107,14 @@ let read_loop download_dir =
           let download_request = String.make msg_size '0' in
           ignore (Unix.recv dlman_sock download_request 0 msg_size []);
           ignore (add_download download_request);
-          ignore (Unix.send dlman_sock "Download added.\n" 0 16 []);
         done
       with Unix.Unix_error (error, cmd, loc) ->
-        print_string "Unable to receive request.\n"
+        print_string ("Unable to receive request.  Error generated in " ^ cmd ^
+                         ".\n");
+        Printf.eprintf "Error code: %s.\n" (Unix.error_message error);
   with Unix.Unix_error (err, cmd, loc) ->
-    print_string ("Unable to launch daemon! Generated error in " ^ cmd ^ "\n");
-    Printf.eprintf "Error code: %s\n" (Unix.error_message err);
+    print_string ("Unable to launch daemon! Generated error in " ^ cmd ^ ".\n");
+    Printf.eprintf "Error code: %s.\n" (Unix.error_message err);
     Sys.remove "/tmp/dlman_socket"
 (* That loop will run forever, at least right now. I should create a method
    to determine when it should be cancelled. *)
