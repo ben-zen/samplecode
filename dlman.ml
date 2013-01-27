@@ -11,9 +11,6 @@
    threads.cma dlman.ml`.  Once I get it worked out better, I'll work up a
    native code command. *)
 
-(* Requires opening str.cma and curl.cma; curl.cma provides a strange problem
-   in that it currently doesn't properly install. *)
-
 (* type file_info = Digest.t * Thread.t *)
 
 let print_usage () =
@@ -32,8 +29,7 @@ let determine_progress file_digest connection =
   *. 100.0) in
   print_string ("{ file_digest : \"" ^ file_digest ^
                    "\", complete: " ^ current_complete ^ " }\n")
-  (* This will be replaced with sending that to the web page.
-  *)
+  (* This will be replaced with sending that to the web page. *)
   
 let write_data fp data_buffer data_line =
   let data_length = String.length data_line in 
@@ -65,7 +61,6 @@ let dl_file file_location =
     close_out file_p;
     0
   with Curl.CurlException (_, _, s) -> print_string s; 1
-    
 
 (* Needs functions to produce a webpage, now that it downloads files. *)
 
@@ -132,7 +127,6 @@ let read_loop () =
     Printf.eprintf "Error code: %s.\n" (Unix.error_message err);
     Sys.remove "/tmp/dlman_socket"
 
-
 (* Next step for the server: add the ability to accept signals.  If the proper
    signal is received, close all downloads and exit.  This will also include
    tracking open downloads and waiting for completion. *)
@@ -154,9 +148,12 @@ let initialize () =
     print_string "Initializing signal failed.\n"
 
 let kill_daemon () =
-  let pid_find = open_in "/tmp/dlman.pid" in
-  let pid_daemon = (int_of_string (input_line pid_find)) in
-  Unix.kill pid_daemon Sys.sigusr1
+  try
+    let pid_find = open_in "/tmp/dlman.pid" in
+    let pid_daemon = (int_of_string (input_line pid_find)) in
+    Unix.kill pid_daemon Sys.sigusr1
+  with Sys_error (s) ->
+    print_string "No running daemon instance.\n"
 
 let _ =
   let dl_dir = "/Users/ben/Downloads/" in
