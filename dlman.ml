@@ -16,6 +16,15 @@
 
 (* type file_info = Digest.t * Thread.t *)
 
+let print_usage () =
+  print_string
+    ("dlman: A download manager with remote capabilities.\n"
+     ^ "Options:\n"
+     ^ "--add FILE_ADDRESS: Downloads FILE_ADDRESS to the download folder.\n"
+     ^ "--start-daemon: Launches daemon to download to default download "
+     ^ "folder.\n" 
+     ^ "--kill-daemon: Stops running daemon.\n")
+
 let determine_progress file_digest connection =
   let total_complete = Curl.get_sizedownload connection
   and total_size = Curl.get_contentlengthdownload connection in
@@ -166,8 +175,10 @@ let _ =
   else
     if (Array.length Sys.argv) = 2 then
       if (String.compare Sys.argv.(1) "--start-daemon" = 0) then
-        (initialize ();
-        read_loop ())
+        let stat = Unix.fork () in match stat with
+          | 0 ->  (initialize ();
+                   read_loop ())
+          | _ -> print_string "Launching daemon.\n"
       else if (String.compare Sys.argv.(1) "--kill-daemon" = 0) then
         kill_daemon ()
       else
@@ -176,4 +187,4 @@ let _ =
         Thread.join new_thread;
         print_string "Finished waiting.\n"
     else
-      print_string "Incorrect invocation of dlman.\n"
+        print_usage ()
