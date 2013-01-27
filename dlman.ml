@@ -144,10 +144,11 @@ let initialize () =
   with Invalid_argument (x) ->
     print_string "Initializing signal failed.\n"
 
-(* let kill_daemon () = *)
-  
-  
-      
+let kill_daemon () =
+  let pid_find = open_in "/tmp/dlman.pid" in
+  let pid_daemon = (int_of_string (input_line pid_find)) in
+  Unix.kill pid_daemon Sys.sigusr1
+
 let _ =
   let dl_dir = "/Users/ben/Downloads/" in
   Unix.chdir dl_dir;
@@ -167,6 +168,8 @@ let _ =
       if (String.compare Sys.argv.(1) "--start-daemon" = 0) then
         (initialize ();
         read_loop ())
+      else if (String.compare Sys.argv.(1) "--kill-daemon" = 0) then
+        kill_daemon ()
       else
         let new_thread = add_download Sys.argv.(1) in
         print_string "Waiting on download . . .\n";
