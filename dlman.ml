@@ -11,7 +11,12 @@
    threads.cma dlman.ml`.  Once I get it worked out better, I'll work up a
    native code command. *)
 
-(* type file_info = Digest.t * Thread.t *)
+(* type file_info = { site : Thread.t ; hash : Digest.t ; status : mutable
+   string } *)
+  (* This ... does not seem like the best solution, but for now it's what I'm
+     going with.  The goal is to provide a way to generate a package of updates
+     for the server once it exists, but I'm not sure how to best present this
+     information. *)
 
 let print_usage () =
   print_string
@@ -22,13 +27,13 @@ let print_usage () =
      ^ "folder.\n" 
      ^ "--kill-daemon: Stops running daemon.\n")
 
-let determine_progress file_digest connection =
+let determine_progress dl_mon file_digest connection =
   let total_complete = Curl.get_sizedownload connection
   and total_size = Curl.get_contentlengthdownload connection in
   let current_complete =  string_of_float ((total_complete /. total_size )
   *. 100.0) in
-  print_string ("{ file_digest : \"" ^ file_digest ^
-                   "\", complete: " ^ current_complete ^ " }\n")
+  ignore (Event.poll (Event.send dl_mon ("{ file_digest : \"" ^ file_digest ^
+                                "\", complete: " ^ current_complete ^ " }\n")))
   (* This will be replaced with sending that to the web page. *)
   
 let write_data fp data_buffer data_line =
@@ -38,11 +43,11 @@ let write_data fp data_buffer data_line =
   Buffer.reset data_buffer;
   data_length
 
-let write_wrapper file_digest connection fp data_buffer data_line =
-  determine_progress file_digest connection;
+let write_wrapper file_digest dl_mon connection fp data_buffer data_line =
+  determine_progress dl_mon file_digest connection;
   write_data fp data_buffer data_line
-    
-let dl_file file_location =
+
+let dl_file dl_mon file_location =
   try 
     let location_list = Str.split (Str.regexp "/") file_location in
     let file_name = List.hd (List.rev location_list) in
@@ -51,30 +56,24 @@ let dl_file file_location =
     let incoming_data = Buffer.create 4096
     (* using a simple buffer at the moment. This will become configurable. *)
     and connection = Curl.init () in
-    Curl.set_writefunction connection (write_wrapper file_digest connection
-                                         file_p incoming_data);
+    Curl.set_writefunction connection (write_wrapper file_digest dl_mon
+                                         connection file_p incoming_data);
     Curl.set_followlocation connection true;
     Curl.set_url connection file_location;
     Curl.perform connection;
     Curl.cleanup connection;
-    print_string ("Download complete: " ^ file_name);
+    (* print_string ("Download complete: " ^ file_name); *)
     close_out file_p;
+    Event.sync (Event.send dl_mon ("Download complete: " ^ file_name ^ "\n"));
     0
   with Curl.CurlException (_, _, s) -> print_string s; 1
 
-(* Needs functions to produce a webpage, now that it downloads files. *)
-
-let add_download file_location =
-  (Thread.create dl_file file_location)
+let add_download dl_mon file_location =
+  (Thread.create (dl_file dl_mon) file_location)
       
 (* This function will need to become slightly more complicated, and it will
    need a function around dl_file, since we'll be handling sending output to a
    webpage (if launched), etc. *)
-
-(* Necessary functionality includes a way to add a download to a
- * currently-running dlman instance, and a web view. Probably also a list of
- * active downloads, and later a list of completed downloads.
- *)
 
 let send_job file_location =
   try
@@ -98,8 +97,16 @@ let send_job file_location =
                       ".\n");
      Printf.eprintf "Error message: %s.\n" (Unix.error_message err);     
      Sys.remove "/tmp/dlman_add_socket")
+
+let status_monitor dl_mon =
+  while true do
+    try
+      let status_message = Event.sync (Event.receive dl_mon) in
+      print_string status_message
+    with except -> ()
+  done
       
-let read_loop () =
+let read_loop dl_mon =
   try
     let pid_file = open_out "/tmp/dlman.pid" in
     output_string pid_file ((string_of_int (Unix.getpid ()) ^ "\n"));
@@ -116,7 +123,7 @@ let read_loop () =
                              ((int_of_char msg_size_str.[3]) lsl 24 )) in
           let download_request = String.make msg_size '0' in
           ignore (Unix.recv dlman_sock download_request 0 msg_size []);
-          ignore (add_download download_request)
+          ignore (add_download dl_mon download_request)
       with Unix.Unix_error (error, cmd, loc) ->
         print_string ("Unable to receive request.  Error generated in " ^ cmd ^
                          ".\n");
@@ -127,9 +134,11 @@ let read_loop () =
     Printf.eprintf "Error code: %s.\n" (Unix.error_message err);
     Sys.remove "/tmp/dlman_socket"
 
-(* Next step for the server: add the ability to accept signals.  If the proper
-   signal is received, close all downloads and exit.  This will also include
-   tracking open downloads and waiting for completion. *)
+(* The current state of signals will simply stop communications, does not
+   actually close downloads or clean up much.  That is going to be a future
+   development, possibly using a list of active threads.  If that is the route
+   taken, the loop component of this will probably become a tail-recursive
+   operation. *)
 
 let initialize () =
   Curl.global_init Curl.CURLINIT_GLOBALALL;
@@ -174,14 +183,16 @@ let _ =
       if (String.compare Sys.argv.(1) "--start-daemon" = 0) then
         let stat = Unix.fork () in match stat with
           | 0 ->  (initialize ();
-                   read_loop ())
+                   let dl_mon = (Event.new_channel ()) in
+                   ignore (Thread.create status_monitor dl_mon);
+                   read_loop dl_mon)
           | _ -> print_string "Launching daemon.\n"
       else if (String.compare Sys.argv.(1) "--kill-daemon" = 0) then
         kill_daemon ()
       else
-        let new_thread = add_download Sys.argv.(1) in
-        print_string "Waiting on download . . .\n";
+        let dl_mon = Event.new_channel () in
+        ignore (Thread.create status_monitor dl_mon);
+        let new_thread = add_download dl_mon Sys.argv.(1) in
         Thread.join new_thread;
-        print_string "Finished waiting.\n"
     else
         print_usage ()
