@@ -32,10 +32,9 @@ let print_usage () =
 let determine_progress dl_mon file_digest connection =
   let total_complete = Curl.get_sizedownload connection
   and total_size = Curl.get_contentlengthdownload connection in
-  let current_complete =  string_of_float ((total_complete /. total_size )
-  *. 100.0) in
-  ignore (Event.poll (Event.send dl_mon ("{ file_digest : \"" ^ file_digest ^
-                                "\", complete: " ^ current_complete ^ " }\n")))
+  let current_complete =  ((total_complete /. total_size ) *. 100.0) in
+  ignore (Event.poll (Event.send dl_mon (Progress(file_digest,
+                                                  current_complete))))
   (* This will be replaced with sending that to the web page. *)
   
 let write_data fp data_buffer data_line =
@@ -66,7 +65,7 @@ let dl_file dl_mon file_location =
     Curl.cleanup connection;
     (* print_string ("Download complete: " ^ file_name); *)
     close_out file_p;
-    Event.sync (Event.send dl_mon ("Download complete: " ^ file_name ^ "\n"));
+    Event.sync (Event.send dl_mon (Completion(file_digest)));
     0
   with Curl.CurlException (_, _, s) -> print_string s; 1
 
@@ -104,9 +103,16 @@ let status_monitor dl_mon =
   while true do
     try
       let status_message = Event.sync (Event.receive dl_mon) in
-      ignore status_message
-        (* This is currently just ignore, as I decide how to handle the web
-           page. That I know it works is enough for now. *)
+      match status_message with
+        Progress (digest, progress) ->
+          print_string ( "{ \"digest\": \"" ^ (Digest.to_hex digest)
+                         ^ "\"; \"progress\": " ^ (string_of_float progress)
+                         ^ " }" )
+      | Completion (digest) ->
+        print_string ( "{ \"digest\": \"" ^ (Digest.to_hex digest)
+                       ^ "\"; \"download_complete\": true }" )
+      | _ -> ()
+
     with except -> ()
   done
       
