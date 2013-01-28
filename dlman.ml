@@ -11,12 +11,14 @@
    threads.cma dlman.ml`.  Once I get it worked out better, I'll work up a
    native code command. *)
 
-(* type file_info = { site : Thread.t ; hash : Digest.t ; status : mutable
-   string } *)
-  (* This ... does not seem like the best solution, but for now it's what I'm
-     going with.  The goal is to provide a way to generate a package of updates
-     for the server once it exists, but I'm not sure how to best present this
-     information. *)
+(* This ... does not seem like the best solution, but for now it's what I'm
+   going with.  The goal is to provide a way to generate a package of updates
+   for the server once it exists, but I'm not sure how to best present this
+   information. *)
+
+type status_update =
+  Progress of Digest.t * float
+| Completion of Digest.t
 
 let print_usage () =
   print_string
@@ -102,7 +104,9 @@ let status_monitor dl_mon =
   while true do
     try
       let status_message = Event.sync (Event.receive dl_mon) in
-      print_string status_message
+      ignore status_message
+        (* This is currently just ignore, as I decide how to handle the web
+           page. That I know it works is enough for now. *)
     with except -> ()
   done
       
