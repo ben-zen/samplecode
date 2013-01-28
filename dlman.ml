@@ -166,6 +166,12 @@ let initialize () =
   with Invalid_argument (x) ->
     print_string "Initializing signal failed.\n"
 
+let start_daemon () =
+  initialize ();
+  let dl_mon = (Event.new_channel ()) in
+  ignore (Thread.create status_monitor dl_mon);
+  read_loop dl_mon
+      
 let kill_daemon () =
   try
     let pid_find = open_in "/tmp/dlman.pid" in
@@ -192,17 +198,19 @@ let _ =
     if (Array.length Sys.argv) = 2 then
       if (String.compare Sys.argv.(1) "--start-daemon" = 0) then
         let stat = Unix.fork () in match stat with
-          | 0 ->  (initialize ();
-                   let dl_mon = (Event.new_channel ()) in
-                   ignore (Thread.create status_monitor dl_mon);
-                   read_loop dl_mon)
+          | 0 -> start_daemon ()
           | _ -> print_string "Launching daemon.\n"
       else if (String.compare Sys.argv.(1) "--kill-daemon" = 0) then
         kill_daemon ()
       else
+        initialize ();
         let dl_mon = Event.new_channel () in
         ignore (Thread.create status_monitor dl_mon);
         let new_thread = add_download dl_mon Sys.argv.(1) in
         Thread.join new_thread;
     else
         print_usage ()
+
+(* This needs to be more robust; there will need to be a better string-matching
+   procedure for it to really work without doing unexpected and terrible
+   things. *)
