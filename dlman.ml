@@ -19,7 +19,8 @@
    information. *)
 
 type status_update =
-  Progress of Digest.t * float
+  Start of Digest.t
+| Progress of Digest.t * float
 | Completion of Digest.t
 
 let print_usage () =
@@ -58,6 +59,7 @@ let dl_file dl_mon file_location =
     let incoming_data = Buffer.create 4096
     (* using a simple buffer at the moment. This will become configurable. *)
     and connection = Curl.init () in
+    Event.sync (Event.send dl_mon (Start(file_digest)));
     Curl.set_writefunction connection (write_wrapper file_digest dl_mon
                                          connection file_p incoming_data);
     Curl.set_followlocation connection true;
@@ -100,13 +102,17 @@ let status_monitor dl_mon =
     try
       let status_message = Event.sync (Event.receive dl_mon) in
       match status_message with
-        Progress (digest, progress) ->
+        Start (digest) ->
+          print_string ("{ \"digest\": \"" ^ (Digest.to_hex digest)
+                        ^ "; \"download_complete\": false; "
+                        ^"\"progress\": 0.0 }\n")
+      | Progress (digest, progress) ->
           print_string ( "{ \"digest\": \"" ^ (Digest.to_hex digest)
                          ^ "\"; \"progress\": " ^ (string_of_float progress)
-                         ^ " }" )
+                         ^ " }\n" )
       | Completion (digest) ->
         print_string ( "{ \"digest\": \"" ^ (Digest.to_hex digest)
-                       ^ "\"; \"download_complete\": true }" )
+                       ^ "\"; \"download_complete\": true }\n" )
     with except -> ()
   done
       
@@ -144,17 +150,17 @@ let read_loop dl_mon =
    taken, the loop component of this will probably become a tail-recursive
    operation. *)
 
+let format_HTTP_response data =
+  "HTTP/1.1 200 OK\r\n"
+  ^ "Content-Length: " ^ (string_of_int (String.length data)) ^ "\r\n"
+  ^ "Content-Type: text/html\r\n\r\n"
+  ^ data
+
 (* serve_page is currently a dummy method that will be improved, because
    really, who's gonna want to use *that* method right now? *)
       
 let serve_page client_socket =
-  let pagedata =
-    "HTTP/1.1 200 OK \r\n"
-    (*^ "Date: " *)
-    ^ "Content-Length: 37\r\n"
-    ^ "Content-Type: text/html\r\n\r\n"
-    ^ "<html>\n<body> Testing. </body></html>"
-  in
+  let pagedata = format_HTTP_response "<html><body> Testing. </body></html>" in
   ignore (Unix.send client_socket pagedata 0 (String.length pagedata) [])
       
 let server port =
