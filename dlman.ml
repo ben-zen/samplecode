@@ -156,10 +156,16 @@ let serve_page client_socket =
   in
   ignore (Unix.send client_socket pagedata 0 (String.length pagedata) [])
       
-(* let server port =
-  let host = (Unix.gethostbyname (Unix.gethostname ())).h_addr_list.(0) in
-  let addr = Unix.ADDR_INET(host, port) in *)
-
+let server port =
+  let host = (Unix.gethostbyname (Unix.gethostname ())).Unix.h_addr_list.(0) in
+  let addr = Unix.ADDR_INET(host, port) in
+  let server_sock = Unix.socket Unix.PF_INET Unix.SOCK_SEQPACKET 0 in
+  Unix.bind server_sock addr;
+  Unix.listen server_sock 5;
+  while true do
+    let (client_sock, client_addr) = Unix.accept server_sock in
+    ignore (Thread.create serve_page client_sock);
+  done
 
 let initialize () =
   Curl.global_init Curl.CURLINIT_GLOBALALL;
