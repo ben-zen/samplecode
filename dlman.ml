@@ -63,7 +63,6 @@ let dl_file dl_mon file_location =
     Curl.set_url connection file_location;
     Curl.perform connection;
     Curl.cleanup connection;
-    (* print_string ("Download complete: " ^ file_name); *)
     close_out file_p;
     Event.sync (Event.send dl_mon (Completion(file_digest)));
     0
@@ -111,8 +110,6 @@ let status_monitor dl_mon =
       | Completion (digest) ->
         print_string ( "{ \"digest\": \"" ^ (Digest.to_hex digest)
                        ^ "\"; \"download_complete\": true }" )
-      | _ -> ()
-
     with except -> ()
   done
       
@@ -149,6 +146,20 @@ let read_loop dl_mon =
    development, possibly using a list of active threads.  If that is the route
    taken, the loop component of this will probably become a tail-recursive
    operation. *)
+
+let serve_page client_socket =
+  let pagedata =
+    "HTTP/1.1 200 OK \r\n"
+    (*^ "Date: " *)
+    ^ "Content-Type: text/html\r\n\r\n"
+    ^ "<html>\n<body> Testing. </body></html>"
+  in
+  ignore (Unix.send client_socket pagedata 0 (String.length pagedata) [])
+      
+(* let server port =
+  let host = (Unix.gethostbyname (Unix.gethostname ())).h_addr_list.(0) in
+  let addr = Unix.ADDR_INET(host, port) in *)
+
 
 let initialize () =
   Curl.global_init Curl.CURLINIT_GLOBALALL;
@@ -203,12 +214,12 @@ let _ =
       else if (String.compare Sys.argv.(1) "--kill-daemon" = 0) then
         kill_daemon ()
       else
-        initialize ();
+        (*initialize ();*)
         let dl_mon = Event.new_channel () in
         ignore (Thread.create status_monitor dl_mon);
         let new_thread = add_download dl_mon Sys.argv.(1) in
         Thread.join new_thread;
-    else
+      else
         print_usage ()
 
 (* This needs to be more robust; there will need to be a better string-matching
