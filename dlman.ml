@@ -147,10 +147,14 @@ let read_loop dl_mon =
    taken, the loop component of this will probably become a tail-recursive
    operation. *)
 
+(* serve_page is currently a dummy method that will be improved, because
+   really, who's gonna want to use *that* method right now? *)
+      
 let serve_page client_socket =
   let pagedata =
     "HTTP/1.1 200 OK \r\n"
     (*^ "Date: " *)
+    ^ "Content-Length: 37\r\n"
     ^ "Content-Type: text/html\r\n\r\n"
     ^ "<html>\n<body> Testing. </body></html>"
   in
