@@ -7,9 +7,11 @@
 
 (* Uses Unix, Str, String, Buffer, Digest (for now), Curl, and Thread. *)
 
-(* To compile to bytecode: `ocamlc -thread -o dlman unix.cma curl.cma str.cma
-   threads.cma dlman.ml`.  Once I get it worked out better, I'll work up a
-   native code command. *)
+(* Bytecode compilation command:
+   ocamlc -thread -o dlman unix.cma curl.cma str.cma threads.cma dlman.ml
+   Native code compilation command:
+   ocamlopt -thread -o dlman unix.cmxa curl.cmxa str.cmxa threads.cmxa dlman.ml
+*)
 
 (* This ... does not seem like the best solution, but for now it's what I'm
    going with.  The goal is to provide a way to generate a package of updates
@@ -35,8 +37,7 @@ let determine_progress dl_mon file_digest connection =
   let current_complete =  ((total_complete /. total_size ) *. 100.0) in
   ignore (Event.poll (Event.send dl_mon (Progress(file_digest,
                                                   current_complete))))
-  (* This will be replaced with sending that to the web page. *)
-  
+
 let write_data fp data_buffer data_line =
   let data_length = String.length data_line in 
   Buffer.add_string data_buffer data_line;
@@ -70,10 +71,6 @@ let dl_file dl_mon file_location =
 
 let add_download dl_mon file_location =
   (Thread.create (dl_file dl_mon) file_location)
-      
-(* This function will need to become slightly more complicated, and it will
-   need a function around dl_file, since we'll be handling sending output to a
-   webpage (if launched), etc. *)
 
 let send_job file_location =
   try
