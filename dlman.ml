@@ -23,6 +23,10 @@ type status_update =
 | Progress of Digest.t * float
 | Completion of Digest.t
 
+type http_data =
+  HTML of string
+| JSON of string
+
 let print_usage () =
   print_string
     ("dlman: A download manager with remote capabilities.\n"
@@ -150,29 +154,56 @@ let read_loop dl_mon =
    taken, the loop component of this will probably become a tail-recursive
    operation. *)
 
+(*  *)
+      
 let format_HTTP_response data =
+  let content_type = match data with
+      HTML (_) -> "text/html"
+    | JSON (_) -> "text/json"
+  in
+  let content_length = match data with
+      HTML (s) -> string_of_int (String.length s)
+    | JSON (s) -> string_of_int (String.length s)
+  in
+  let content_matter = match data with
+      HTML (s) -> s
+    | JSON (s) -> s
+  in
   "HTTP/1.1 200 OK\r\n"
-  ^ "Content-Length: " ^ (string_of_int (String.length data)) ^ "\r\n"
-  ^ "Content-Type: text/html\r\n\r\n"
-  ^ data
+  ^ "Content-Length: " ^ content_length ^ "\r\n"
+  ^ "Content-Type: " ^ content_type ^ "\r\n\r\n"
+  ^ content_matter
 
 (* serve_page is currently a dummy method that will be improved, because
    really, who's gonna want to use *that* method right now? *)
       
-let serve_page client_socket =
-  let pagedata = format_HTTP_response "<html><body> Testing. </body></html>" in
-  ignore (Unix.send client_socket pagedata 0 (String.length pagedata) [])
+let serve_page client_socket client_channel =
+  let pagedata = format_HTTP_response
+    (HTML("<html><body> Testing. </body></html>")) in 
+  ignore (Unix.send client_socket pagedata 0 (String.length pagedata) []);
+  try
+    while true do
+      ignore (Event.sync (Event.receive client_channel))
+    (* This will be replaced with sending updates to the client once I've found
+       a way to make that happen. *)
+    done
+  with Unix.Unix_error (err, cmd, loc) -> ()
+    (* Encountered from EPIPE, which gets sent instead of SIGPIPE because
+       SIGPIPE is ignored re. initialization. *)
       
 let server port =
   try
+    let serving_pages = [] in
     let host = (Unix.gethostbyname (Unix.gethostname ())).Unix.h_addr_list.(0) in
-    let addr = Unix.ADDR_INET(Unix.inet_addr_loopback, port) in
+    let addr = Unix.ADDR_INET(host, port) in
     let server_sock = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
     Unix.bind server_sock addr;
     Unix.listen server_sock 5;
     while true do
       let (client_sock, client_addr) = Unix.accept server_sock in
-      ignore (Thread.create serve_page client_sock);
+      let client_channel = Event.new_channel () in
+      ignore (Thread.create (serve_page client_sock) client_channel); 
+      ignore (serving_pages = client_channel :: serving_pages)
     done
   with Unix.Unix_error (err, cmd, loc) ->
     print_string ("Failed to start server.  Generated error in " ^ cmd ^ ".\n");
@@ -181,6 +212,7 @@ let server port =
 let initialize () =
   Curl.global_init Curl.CURLINIT_GLOBALALL;
   try
+    Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
     Sys.set_signal Sys.sigusr1
       (Sys.Signal_handle(fun x ->
         try
