@@ -23,7 +23,7 @@ type download_list = {
 exception ConflictingDigest of Digest.t
 
 type status_update =
-  Start of Digest.t
+  Start of Digest.t * string * string
 | Progress of Digest.t * float
 | Completion of Digest.t
 
@@ -66,7 +66,8 @@ let download_list_add dl_list file_digest file_location file_name =
 let download_list_remove dl_list file_digest =
   Mutex.lock dl_list.mut;
   match (List.partition
-  (fun (d, _, _, _) -> ((Digest.compare file_digest d) = 0)) dl_list.downloads)
+           (fun (d, _, _, _) -> ((Digest.compare file_digest d) = 0))
+           dl_list.downloads)
   with
     ([], lst) -> Mutex.unlock dl_list.mut;
       None
@@ -75,12 +76,25 @@ let download_list_remove dl_list file_digest =
     Mutex.unlock dl_list.mut;
     Some remv
 
-let determine_progress dl_mon file_digest connection =
+let download_list_update dl_list file_digest completion =
+  Mutex.lock dl_list.mut;
+  match (List.partition
+           (fun (d, _, _, _) -> ((Digest.compare file_digest d) = 0))
+           dl_list.downloads)
+  with
+    ([], lst) -> Mutex.unlock dl_list.mut
+  | ([(g,s,l,f)], lst) ->
+    ignore (dl_list.downloads = (g,s,l,completion) :: lst);
+    Mutex.unlock dl_list.mut
+  | _ -> Mutex.unlock dl_list.mut
+
+let determine_progress active_list dl_mon file_digest connection =
   let total_complete = Curl.get_sizedownload connection
   and total_size = Curl.get_contentlengthdownload connection in
   let current_complete =  ((total_complete /. total_size ) *. 100.0) in
   ignore (Event.poll (Event.send dl_mon (Progress(file_digest,
-                                                  current_complete))))
+                                                  current_complete))));
+  download_list_update active_list file_digest current_complete
 
 let write_data fp data_buffer data_line =
   let data_length = String.length data_line in 
@@ -89,8 +103,9 @@ let write_data fp data_buffer data_line =
   Buffer.reset data_buffer;
   data_length
 
-let write_wrapper file_digest dl_mon connection fp data_buffer data_line =
-  determine_progress dl_mon file_digest connection;
+let write_wrapper active_list file_digest dl_mon connection fp data_buffer
+    data_line =
+  determine_progress active_list dl_mon file_digest connection;
   write_data fp data_buffer data_line
 
 let dl_file dl_lists dl_mon file_location =
@@ -104,9 +119,10 @@ let dl_file dl_lists dl_mon file_location =
     let incoming_data = Buffer.create 4096
     (* using a simple buffer at the moment. This will become configurable. *)
     and connection = Curl.init () in
-    Event.sync (Event.send dl_mon (Start(file_digest)));
-    Curl.set_writefunction connection (write_wrapper file_digest dl_mon
-                                         connection file_p incoming_data);
+    Event.sync (Event.send dl_mon (Start(file_digest,file_location,file_name)));
+    Curl.set_writefunction connection (write_wrapper active_list file_digest
+                                         dl_mon connection file_p
+                                         incoming_data);
     Curl.set_followlocation connection true;
     Curl.set_url connection file_location;
     Curl.perform connection;
@@ -150,12 +166,13 @@ let send_job file_location =
      Printf.eprintf "Error message: %s.\n" (Unix.error_message err);     
      Sys.remove "/tmp/dlman_add_socket")
 
-let status_monitor dl_mon =
+let status_monitor dl_lists dl_mon =
+  let (active_downloads, completed_downloads) = dl_lists in
   while true do
     try
       let status_message = Event.sync (Event.receive dl_mon) in
       match status_message with
-        Start (digest) ->
+        Start (digest, location, filename) ->
           print_string ("{ \"digest\": \"" ^ (Digest.to_hex digest)
                         ^ "; \"download_complete\": false; "
                         ^"\"progress\": 0.0 }\n")
@@ -286,7 +303,7 @@ let start_daemon () =
   initialize ();
   let dl_lists = (download_list_create (), download_list_create()) in
   let dl_mon = (Event.new_channel ()) in
-  ignore (Thread.create status_monitor dl_mon);
+  ignore (Thread.create (status_monitor dl_lists) dl_mon);
   ignore (Thread.create server 8080);
   read_loop dl_lists dl_mon
       
