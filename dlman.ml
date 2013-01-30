@@ -8,15 +8,12 @@
 (* Uses Unix, Str, String, Buffer, Digest (for now), Curl, and Thread. *)
 
 (* Bytecode compilation command:
-   ocamlc -thread -o dlman unix.cma curl.cma str.cma threads.cma dlman.ml
+   ocamlc -thread -I +curl -o dlman
+   unix.cma curl.cma str.cma threads.cma dlman.ml
    Native code compilation command:
-   ocamlopt -thread -o dlman unix.cmxa curl.cmxa str.cmxa threads.cmxa dlman.ml
+   ocamlopt -thread -I +curl -o dlman
+   unix.cmxa curl.cmxa str.cmxa threads.cmxa dlman.ml
 *)
-
-(* This ... does not seem like the best solution, but for now it's what I'm
-   going with.  The goal is to provide a way to generate a package of updates
-   for the server once it exists, but I'm not sure how to best present this
-   information. *)
 
 type download_list = {
   mut : Mutex.t ;
@@ -60,10 +57,11 @@ let download_list_add dl_list file_digest file_location file_name =
     Mutex.unlock dl_list.mut
   with ConflictingDigest(dat) ->
     Mutex.unlock dl_list.mut;
-    print_string ("Unable to add download; previously existing digest: "
-      ^ Digest.to_hex dat ^ ".\n")
-(* This probably needs to raise an additional exception to cancel the
-  download. *)
+    print_string ("Thread "
+                  ^ (string_of_int (Thread.id (Thread.self ())))
+                  ^ ": Unable to add download; previously existing digest: "
+                  ^ Digest.to_hex dat ^ ".\n");
+    raise (ConflictingDigest dat)
 
 let download_list_remove dl_list file_digest =
   Mutex.lock dl_list.mut;
@@ -118,7 +116,13 @@ let dl_file dl_lists dl_mon file_location =
     download_list_add complete_list file_digest file_location file_name;
     Event.sync (Event.send dl_mon (Completion(file_digest)));
     0
-  with Curl.CurlException (_, _, s) -> print_string s; 1
+  with
+    Curl.CurlException (_, _, s) -> print_string s; 1
+  | ConflictingDigest (d) -> print_string
+    ( "Trying to download the file at " ^ file_location
+    ^ " generated a conflicting MD5 hash of " ^ (Digest.to_hex d)
+    ^ ", which is already present for another download.  "
+    ^ "This may generate a filename conflict.\n" ); 1
 
 let add_download dl_lists dl_mon file_location =
   (Thread.create (dl_file dl_lists dl_mon) file_location)
