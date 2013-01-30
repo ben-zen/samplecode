@@ -202,8 +202,16 @@ let server port =
     while true do
       let (client_sock, client_addr) = Unix.accept server_sock in
       let client_channel = Event.new_channel () in
-      ignore (Thread.create (serve_page client_sock) client_channel); 
-      ignore (serving_pages = client_channel :: serving_pages)
+      let client_thread = (Thread.create (serve_page client_sock)
+                             client_channel) in
+      ignore (serving_pages = (client_thread, client_channel) :: serving_pages)
+    (* Still need to find a proper next step to take on this one; that list
+       needs to be updated regularly against closed threads; updates should be
+       dispatched to each thread to be sent to the pages they're serving, and
+       when the page is closed, the thread should be closed and its element
+       removed from the list.  Which is where it gets tricky.  Considering
+       adding a "connection_status" type and channel heading in the other
+       direction. *)
     done
   with Unix.Unix_error (err, cmd, loc) ->
     print_string ("Failed to start server.  Generated error in " ^ cmd ^ ".\n");
