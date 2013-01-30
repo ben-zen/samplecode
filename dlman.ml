@@ -18,6 +18,13 @@
    for the server once it exists, but I'm not sure how to best present this
    information. *)
 
+type download_list = {
+  mut : Mutex.t ;
+  mutable downloads : ( Digest.t * string * string * float ) list
+}
+
+exception ConflictingDigest of Digest.t
+
 type status_update =
   Start of Digest.t
 | Progress of Digest.t * float
@@ -35,6 +42,40 @@ let print_usage () =
      ^ "--start-daemon: Launches daemon to download to default download "
      ^ "folder.\n" 
      ^ "--kill-daemon: Stops running daemon.\n")
+
+let download_list_create () = {
+  mut = Mutex.create () ;
+  downloads = []
+}
+
+let download_list_add dl_list file_digest file_location file_name =
+  try
+    Mutex.lock dl_list.mut;
+    if (List.fold_left (fun x (y, _, _, _) -> x ||
+      ((Digest.compare file_digest y) = 0)) false dl_list.downloads)
+    then raise (ConflictingDigest file_digest)
+    else
+      ignore (dl_list.downloads =
+          (file_digest, file_location, file_name, 0.0) :: dl_list.downloads);
+    Mutex.unlock dl_list.mut
+  with ConflictingDigest(dat) ->
+    Mutex.unlock dl_list.mut;
+    print_string ("Unable to add download; previously existing digest: "
+      ^ Digest.to_hex dat ^ ".\n")
+(* This probably needs to raise an additional exception to cancel the
+  download. *)
+
+let download_list_remove dl_list file_digest =
+  Mutex.lock dl_list.mut;
+  match (List.partition
+  (fun (d, _, _, _) -> ((Digest.compare file_digest d) = 0)) dl_list.downloads)
+  with
+    ([], lst) -> Mutex.unlock dl_list.mut;
+      None
+  | (remv, lst) ->
+    ignore (dl_list.downloads = lst);
+    Mutex.unlock dl_list.mut;
+    Some remv
 
 let determine_progress dl_mon file_digest connection =
   let total_complete = Curl.get_sizedownload connection
@@ -54,12 +95,14 @@ let write_wrapper file_digest dl_mon connection fp data_buffer data_line =
   determine_progress dl_mon file_digest connection;
   write_data fp data_buffer data_line
 
-let dl_file dl_mon file_location =
-  try 
+let dl_file dl_lists dl_mon file_location =
+  let (active_list, complete_list) = dl_lists in
+  try
+    let file_digest = Digest.string file_location in
     let location_list = Str.split (Str.regexp "/") file_location in
     let file_name = List.hd (List.rev location_list) in
+    download_list_add active_list file_digest file_location file_name;
     let file_p = open_out_bin (file_name) in
-    let file_digest = Digest.string file_location in
     let incoming_data = Buffer.create 4096
     (* using a simple buffer at the moment. This will become configurable. *)
     and connection = Curl.init () in
@@ -71,12 +114,14 @@ let dl_file dl_mon file_location =
     Curl.perform connection;
     Curl.cleanup connection;
     close_out file_p;
+    ignore (download_list_remove active_list file_digest);
+    download_list_add complete_list file_digest file_location file_name;
     Event.sync (Event.send dl_mon (Completion(file_digest)));
     0
   with Curl.CurlException (_, _, s) -> print_string s; 1
 
-let add_download dl_mon file_location =
-  (Thread.create (dl_file dl_mon) file_location)
+let add_download dl_lists dl_mon file_location =
+  (Thread.create (dl_file dl_lists dl_mon) file_location)
 
 let send_job file_location =
   try
@@ -111,16 +156,17 @@ let status_monitor dl_mon =
                         ^ "; \"download_complete\": false; "
                         ^"\"progress\": 0.0 }\n")
       | Progress (digest, progress) ->
-          print_string ( "{ \"digest\": \"" ^ (Digest.to_hex digest)
+        print_string ( "{ \"digest\": \"" ^ (Digest.to_hex digest)
                          ^ "\"; \"progress\": " ^ (string_of_float progress)
                          ^ " }\n" )
       | Completion (digest) ->
+
         print_string ( "{ \"digest\": \"" ^ (Digest.to_hex digest)
                        ^ "\"; \"download_complete\": true }\n" )
     with except -> ()
   done
       
-let read_loop dl_mon =
+let read_loop dl_lists dl_mon =
   try
     let pid_file = open_out "/tmp/dlman.pid" in
     output_string pid_file ((string_of_int (Unix.getpid ()) ^ "\n"));
@@ -137,7 +183,7 @@ let read_loop dl_mon =
                              ((int_of_char msg_size_str.[3]) lsl 24 )) in
           let download_request = String.make msg_size '0' in
           ignore (Unix.recv dlman_sock download_request 0 msg_size []);
-          ignore (add_download dl_mon download_request)
+          ignore (add_download dl_lists dl_mon download_request)
       with Unix.Unix_error (error, cmd, loc) ->
         print_string ("Unable to receive request.  Error generated in " ^ cmd ^
                          ".\n");
@@ -154,8 +200,6 @@ let read_loop dl_mon =
    taken, the loop component of this will probably become a tail-recursive
    operation. *)
 
-(*  *)
-      
 let format_HTTP_response data =
   let content_type = match data with
       HTML (_) -> "text/html"
@@ -236,10 +280,11 @@ let initialize () =
 
 let start_daemon () =
   initialize ();
+  let dl_lists = (download_list_create (), download_list_create()) in
   let dl_mon = (Event.new_channel ()) in
   ignore (Thread.create status_monitor dl_mon);
   ignore (Thread.create server 8080);
-  read_loop dl_mon
+  read_loop dl_lists dl_mon
       
 let kill_daemon () =
   try
@@ -271,12 +316,14 @@ let _ =
           | _ -> print_string "Launching daemon.\n"
       else if (String.compare Sys.argv.(1) "--kill-daemon" = 0) then
         kill_daemon ()
-      else
+(*      else
         (*initialize ();*)
         let dl_mon = Event.new_channel () in
         ignore (Thread.create status_monitor dl_mon);
-        let new_thread = add_download dl_mon Sys.argv.(1) in
-        Thread.join new_thread;
+        let new_thread = add_download dl_lists dl_mon Sys.argv.(1) in
+        Thread.join new_thread; *)
+      else
+        print_usage ()
       else
         print_usage ()
 
