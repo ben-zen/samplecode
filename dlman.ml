@@ -254,9 +254,31 @@ let format_HTTP_response data =
   ^ "Content-Type: " ^ content_type ^ "\r\n\r\n"
   ^ content_matter
 
+let rec _download_html_list_cons html downloads completed = match downloads with
+    [] -> html
+  | (dig, src, loc, per) :: t ->
+    _download_html_list_cons
+      (html
+       ^ "<div class=\"download\" id=\"" ^ Digest.to_hex dig ^ "\">\n"
+       ^ "<p class=\"filename\">"
+       ^ loc ^ "</p>\n"
+       ^ (if not completed then "<progress max=\"100\" value=\""
+           ^ (string_of_int (int_of_float per)) ^ "></progress>\n"
+         else "")
+       ^ "</div>\n"
+      ) t completed
+
+let generate_download_list_html dl_list completed =
+  let created_html = "" in
+  Mutex.lock dl_list.mut;
+  ignore (created_html = _download_html_list_cons
+            "" dl_list.downloads completed);
+  Mutex.unlock dl_list.mut;
+  created_html
+
 (* serve_page is currently a dummy method that will be improved, because
    really, who's gonna want to use *that* method right now? *)
-      
+
 let serve_page client_socket client_channel =
   let pagedata = format_HTTP_response
     (HTML("<html><body> Testing. </body></html>")) in 
