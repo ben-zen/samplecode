@@ -71,10 +71,25 @@ let download_list_remove dl_list file_digest =
   with
     ([], lst) -> Mutex.unlock dl_list.mut;
       None
-  | (remv, lst) ->
+  | ([remv], lst) ->
     ignore (dl_list.downloads = lst);
     Mutex.unlock dl_list.mut;
     Some remv
+  | _ -> Mutex.unlock dl_list.mut;
+    None
+
+let download_list_find dl_list file_digest =
+  Mutex.lock dl_list.mut;
+  match (List.partition
+           (fun (d, _, _, _) -> ((Digest.compare file_digest d) = 0))
+           dl_list.downloads)
+  with
+    ([], lst) -> Mutex.unlock dl_list.mut;
+      None
+  | ([found], lst) -> Mutex.unlock dl_list.mut;
+    Some found
+  | _ -> Mutex.unlock dl_list.mut;
+    None
 
 let download_list_update dl_list file_digest completion =
   Mutex.lock dl_list.mut;
