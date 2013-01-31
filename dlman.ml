@@ -276,12 +276,22 @@ let generate_download_list_html dl_list completed =
   Mutex.unlock dl_list.mut;
   created_html
 
+let construct_main_page dl_lists =
+  let (active_downloads, completed_downloads) = dl_lists in
+  "<!doctype html>\n<html lang=\"en\">\n<head>\n<title>dlman</title>\n"
+  ^ "<meta charset=\"utf-8\" />\n</head>\n<body>\n<h1>dlman</h1>\n"
+  ^ "<div id=\"active_downloads\">\n<h2>Active Downloads</h2>\n"
+  ^ (generate_download_list_html active_downloads false)
+  ^ "</div>\n<div id=\"completed_downloads\">\n<h2>Completed Downloads</h2>\n"
+  ^ (generate_download_list_html completed_downloads true)
+  ^ "</div>\n</body>\n</html>\n"
+
 (* serve_page is currently a dummy method that will be improved, because
    really, who's gonna want to use *that* method right now? *)
 
-let serve_page client_socket client_channel =
+let serve_client dl_lists client_socket client_channel =
   let pagedata = format_HTTP_response
-    (HTML("<html><body> Testing. </body></html>")) in 
+    (HTML(construct_main_page dl_lists)) in 
   ignore (Unix.send client_socket pagedata 0 (String.length pagedata) []);
   try
     while true do
@@ -292,19 +302,19 @@ let serve_page client_socket client_channel =
   with Unix.Unix_error (err, cmd, loc) -> ()
     (* Encountered from EPIPE, which gets sent instead of SIGPIPE because
        SIGPIPE is ignored re. initialization. *)
-      
-let server port =
+
+let server dl_lists port =
   try
     let serving_pages = [] in
     let host = (Unix.gethostbyname (Unix.gethostname ())).Unix.h_addr_list.(0) in
-    let addr = Unix.ADDR_INET(host, port) in
+    let addr = Unix.ADDR_INET(Unix.inet_addr_loopback, port) in
     let server_sock = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
     Unix.bind server_sock addr;
     Unix.listen server_sock 5;
     while true do
       let (client_sock, client_addr) = Unix.accept server_sock in
       let client_channel = Event.new_channel () in
-      let client_thread = (Thread.create (serve_page client_sock)
+      let client_thread = (Thread.create (serve_client dl_lists client_sock)
                              client_channel) in
       ignore (serving_pages = (client_thread, client_channel) :: serving_pages)
     (* Still need to find a proper next step to take on this one; that list
@@ -341,7 +351,7 @@ let start_daemon () =
   let dl_lists = (download_list_create (), download_list_create()) in
   let dl_mon = (Event.new_channel ()) in
   ignore (Thread.create (status_monitor dl_lists) dl_mon);
-  ignore (Thread.create server 8080);
+  ignore (Thread.create (server dl_lists) 8080);
   read_loop dl_lists dl_mon
       
 let kill_daemon () =
