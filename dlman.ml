@@ -17,7 +17,7 @@
 
 type download_list = {
   mut : Mutex.t ;
-  mutable downloads : ( Digest.t * string * string * float ) list
+  downloads : ( Digest.t , Digest.t * string * string * float ) Hashtbl.t
 }
 
 exception ConflictingDigest of Digest.t
@@ -42,18 +42,17 @@ let print_usage () =
 
 let download_list_create () = {
   mut = Mutex.create () ;
-  downloads = []
+  downloads = Hashtbl.create ~random:true 30
 }
 
 let download_list_add dl_list file_digest file_location file_name =
   try
     Mutex.lock dl_list.mut;
-    if (List.fold_left (fun x (y, _, _, _) -> x ||
-      ((Digest.compare file_digest y) = 0)) false dl_list.downloads)
+    if (Hashtbl.mem dl_list.downloads file_digest)
     then raise (ConflictingDigest file_digest)
     else
-      ignore (dl_list.downloads =
-          (file_digest, file_location, file_name, 0.0) :: dl_list.downloads);
+      Hashtbl.add dl_list.downloads file_digest
+        (file_digest, file_location, file_name, 0.0);
     Mutex.unlock dl_list.mut
   with ConflictingDigest(dat) ->
     Mutex.unlock dl_list.mut;
@@ -65,44 +64,30 @@ let download_list_add dl_list file_digest file_location file_name =
 
 let download_list_remove dl_list file_digest =
   Mutex.lock dl_list.mut;
-  match (List.partition
-           (fun (d, _, _, _) -> ((Digest.compare file_digest d) = 0))
-           dl_list.downloads)
-  with
-    ([], lst) -> Mutex.unlock dl_list.mut;
-      None
-  | ([remv], lst) ->
-    ignore (dl_list.downloads = lst);
-    Mutex.unlock dl_list.mut;
-    Some remv
-  | _ -> Mutex.unlock dl_list.mut;
-    None
+  Hashtbl.remove dl_list.downloads file_digest;
+  Mutex.unlock dl_list.mut
 
 let download_list_find dl_list file_digest =
   Mutex.lock dl_list.mut;
-  match (List.partition
-           (fun (d, _, _, _) -> ((Digest.compare file_digest d) = 0))
-           dl_list.downloads)
-  with
-    ([], lst) -> Mutex.unlock dl_list.mut;
-      None
-  | ([found], lst) -> Mutex.unlock dl_list.mut;
+  try
+    let found = Hashtbl.find dl_list.downloads file_digest in
+    Mutex.unlock dl_list.mut;
     Some found
-  | _ -> Mutex.unlock dl_list.mut;
+  with exn ->
+    Mutex.unlock dl_list.mut;
     None
 
 let download_list_update dl_list file_digest completion =
   Mutex.lock dl_list.mut;
-  match (List.partition
-           (fun (d, _, _, _) -> ((Digest.compare file_digest d) = 0))
-           dl_list.downloads)
-  with
-    ([], lst) -> Mutex.unlock dl_list.mut
-  | ([(g,s,l,f)], lst) ->
-    ignore (dl_list.downloads = (g,s,l,completion) :: lst);
+  try
+    let (_, file_location, file_name, _) =
+      Hashtbl.find dl_list.downloads file_digest in
+    Hashtbl.replace dl_list.downloads file_digest
+      (file_digest, file_location, file_name, completion);
+    Mutex.unlock dl_list.mut;
+  with exn ->
     Mutex.unlock dl_list.mut
-  | _ -> Mutex.unlock dl_list.mut
-
+      
 let determine_progress active_list dl_mon file_digest connection =
   let total_complete = Curl.get_sizedownload connection
   and total_size = Curl.get_contentlengthdownload connection in
@@ -254,25 +239,21 @@ let format_HTTP_response data =
   ^ "Content-Type: " ^ content_type ^ "\r\n\r\n"
   ^ content_matter
 
-let rec _download_html_list_cons html downloads completed = match downloads with
-    [] -> html
-  | (dig, src, loc, per) :: t ->
-    _download_html_list_cons
+let generate_download_list_html dl_list completed =
+  let created_html = "" in
+  Mutex.lock dl_list.mut;
+  ignore (created_html = Hashtbl.fold
+    (fun _ (dig, src, loc, per) html ->
       (html
        ^ "<div class=\"download\" id=\"" ^ Digest.to_hex dig ^ "\">\n"
        ^ "<p class=\"filename\">"
        ^ loc ^ "</p>\n"
-       ^ (if not completed then "<progress max=\"100\" value=\""
+       ^ ( if not completed then "<progress max=\"100\" value=\""
            ^ (string_of_int (int_of_float per)) ^ "></progress>\n"
-         else "")
+         else "" )
        ^ "</div>\n"
-      ) t completed
-
-let generate_download_list_html dl_list completed =
-  let created_html = "" in
-  Mutex.lock dl_list.mut;
-  ignore (created_html = _download_html_list_cons
-            "" dl_list.downloads completed);
+      )
+    ) dl_list.downloads "" );
   Mutex.unlock dl_list.mut;
   created_html
 
