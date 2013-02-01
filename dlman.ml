@@ -221,6 +221,11 @@ let read_loop dl_lists dl_mon =
    taken, the loop component of this will probably become a tail-recursive
    operation. *)
 
+
+(* HTTP responses need to be modified to reply to a particular incoming
+   message.  The current system is to simply throw output at the asking system,
+   but that's not what's called for, especially as more is added. *)
+
 let format_HTTP_response data =
   let content_type = match data with
       HTML (_) -> "text/html"
