@@ -349,38 +349,43 @@ let kill_daemon () =
     print_string "No running daemon instance.\n"
 
 let _ =
-  let dl_dir = "/Users/ben/Downloads/" in
-  Unix.chdir dl_dir;
-  (* This needs to become loaded from a file. *)
-  if (Array.length Sys.argv) > 2 then
-    if (String.compare (Sys.argv.(1)) "--add") = 0 then
-      if (Sys.file_exists ("/tmp/dlman_socket")) then
-        for i=2 to ((Array.length Sys.argv) - 1) do
-          send_job (Sys.argv.(i))
-        done
+  try
+    let home_dir = Sys.getenv "HOME" in
+    let config_stream = open_in (home_dir ^ "/.dlman_conf") in
+    let dl_dir = input_line (config_stream) in
+    Unix.chdir dl_dir;
+    close_in config_stream; (* For the time being *)
+    (* This needs to become loaded from a file. *)
+    if (Array.length Sys.argv) > 2 then
+      if (String.compare (Sys.argv.(1)) "--add") = 0 then
+        if (Sys.file_exists ("/tmp/dlman_socket")) then
+          for i=2 to ((Array.length Sys.argv) - 1) do
+            send_job (Sys.argv.(i))
+          done
+        else
+          print_string "There does not appear to be a dlman daemon running!\n"
       else
-        print_string "There does not appear to be a dlman daemon running!\n"
+        print_string "Incorrect invocation of dlman.\n"
     else
-      print_string "Incorrect invocation of dlman.\n"
-  else
-    if (Array.length Sys.argv) = 2 then
-      if (String.compare Sys.argv.(1) "--start-daemon" = 0) then
-        let stat = Unix.fork () in match stat with
-          | 0 -> start_daemon ()
-          | _ -> print_string "Launching daemon.\n"
-      else if (String.compare Sys.argv.(1) "--kill-daemon" = 0) then
-        kill_daemon ()
-(*      else
+      if (Array.length Sys.argv) = 2 then
+        if (String.compare Sys.argv.(1) "--start-daemon" = 0) then
+          let stat = Unix.fork () in match stat with
+            | 0 -> start_daemon ()
+            | _ -> print_string "Launching daemon.\n"
+        else if (String.compare Sys.argv.(1) "--kill-daemon" = 0) then
+          kill_daemon ()
+      (*      else
         (*initialize ();*)
-        let dl_mon = Event.new_channel () in
-        ignore (Thread.create status_monitor dl_mon);
-        let new_thread = add_download dl_lists dl_mon Sys.argv.(1) in
-        Thread.join new_thread; *)
-      else
-        print_usage ()
-      else
-        print_usage ()
-
+              let dl_mon = Event.new_channel () in
+              ignore (Thread.create status_monitor dl_mon);
+              let new_thread = add_download dl_lists dl_mon Sys.argv.(1) in
+              Thread.join new_thread; *)
+        else
+          print_usage ()
+        else
+          print_usage ()
+  with Sys_error e -> prerr_endline e
+  | exn -> print_string "Failed to launch daemon.\n"
 (* This needs to be more robust; there will need to be a better string-matching
    procedure for it to really work without doing unexpected and terrible
    things. *)
