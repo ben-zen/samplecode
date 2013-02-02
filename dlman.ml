@@ -380,6 +380,8 @@ let _ =
               ignore (Thread.create status_monitor dl_mon);
               let new_thread = add_download dl_lists dl_mon Sys.argv.(1) in
               Thread.join new_thread; *)
+        else if (String.compare Sys.argv.(1) "--halp" = 0) then
+          print_string "dlman: You can haz downloads!\n"
         else
           print_usage ()
         else
