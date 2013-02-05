@@ -19,10 +19,11 @@ void display () {
   glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glLoadIdentity ();
 
+  glColor3f (1.0f, 0.85f, 0.35f);
   glBegin (GL_TRIANGLES);
-  glVertex3f (0.0, 0.0, -10.0);
-  glVertex3f (1.0, 0.0, -10.0);
-  glVertex3f (0.0, 1.0, -10.0);
+  glVertex3f (0.0, 0.6, -3.0);
+  glVertex3f (-0.2, -0.3, -5.0);
+  glVertex3f (0.2, -0.3, -5.0);
   glEnd ();
 
   glutSwapBuffers ();
