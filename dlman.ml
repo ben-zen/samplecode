@@ -87,7 +87,7 @@ let download_list_update dl_list file_digest completion =
     Mutex.unlock dl_list.mut;
   with exn ->
     Mutex.unlock dl_list.mut
-      
+
 let determine_progress active_list dl_mon file_digest connection =
   let total_complete = Curl.get_sizedownload connection
   and total_size = Curl.get_contentlengthdownload connection in
@@ -163,11 +163,10 @@ let send_job file_location =
   with Unix.Unix_error (err, cmd, loc) ->
     (print_string ("Failed to send job to daemon. Generated error in " ^ cmd ^
                       ".\n");
-     Printf.eprintf "Error message: %s.\n" (Unix.error_message err);     
+     Printf.eprintf "Error message: %s.\n" (Unix.error_message err);
      Sys.remove "/tmp/dlman_add_socket")
 
-let status_monitor dl_lists dl_mon =
-  let (active_downloads, completed_downloads) = dl_lists in
+let status_monitor active_downloads completed_downloads dl_mon =
   while true do
     try
       let status_message = Event.sync (Event.receive dl_mon) in
@@ -184,10 +183,10 @@ let status_monitor dl_lists dl_mon =
 
         print_string ( "{ \"digest\": \"" ^ (Digest.to_hex digest)
                        ^ "\"; \"download_complete\": true }\n" )
-    with except -> ()
+    with exn -> print_string (Printexc.to_string exn)
   done
       
-let read_loop dl_lists dl_mon =
+let read_loop active_downloads completed_downloads dl_mon =
   try
     let pid_file = open_out "/tmp/dlman.pid" in
     output_string pid_file ((string_of_int (Unix.getpid ()) ^ "\n"));
@@ -204,7 +203,8 @@ let read_loop dl_lists dl_mon =
                              ((int_of_char msg_size_str.[3]) lsl 24 )) in
           let download_request = String.make msg_size '0' in
           ignore (Unix.recv dlman_sock download_request 0 msg_size []);
-          ignore (add_download dl_lists dl_mon download_request)
+          ignore (add_download (active_downloads, completed_downloads)
+                    dl_mon download_request)
       with Unix.Unix_error (error, cmd, loc) ->
         print_string ("Unable to receive request.  Error generated in " ^ cmd ^
                          ".\n");
@@ -214,6 +214,9 @@ let read_loop dl_lists dl_mon =
     print_string ("Unable to launch daemon! Generated error in " ^ cmd ^ ".\n");
     Printf.eprintf "Error code: %s.\n" (Unix.error_message err);
     Sys.remove "/tmp/dlman_socket"
+  | Not_found -> Printexc.print_backtrace stdout;
+    Unix.kill (Unix.getpid ()) Sys.sigusr1
+  | exn -> print_string (Printexc.to_string exn)
 
 (* The current state of signals will simply stop communications, does not
    actually close downloads or clean up much.  That is going to be a future
@@ -245,9 +248,8 @@ let format_HTTP_response data =
   ^ content_matter
 
 let generate_download_list_html dl_list completed =
-  let created_html = "" in
   Mutex.lock dl_list.mut;
-  ignore (created_html = Hashtbl.fold
+  let created_html = Hashtbl.fold
     (fun _ (dig, src, loc, per) html ->
       (html
        ^ "<div class=\"download\" id=\"" ^ Digest.to_hex dig ^ "\">\n"
@@ -258,7 +260,7 @@ let generate_download_list_html dl_list completed =
          else "" )
        ^ "</div>\n"
       )
-    ) dl_list.downloads "" );
+    ) dl_list.downloads "" in
   Mutex.unlock dl_list.mut;
   created_html
 
@@ -334,11 +336,15 @@ let initialize () =
 
 let start_daemon () =
   initialize ();
-  let dl_lists = (download_list_create (), download_list_create()) in
+  let active_downloads = download_list_create () in
+  let completed_downloads = download_list_create() in
+  let dl_lists = (active_downloads, completed_downloads) in
   let dl_mon = (Event.new_channel ()) in
-  ignore (Thread.create (status_monitor dl_lists) dl_mon);
-  ignore (Thread.create (server dl_lists) 8080);
-  read_loop dl_lists dl_mon
+  let mon_thread = Thread.create (status_monitor dl_lists) dl_mon in
+  (*let server_thread = Thread.create (server dl_lists) 8080 in*)
+  print_string ("Monitor thread: " ^ (string_of_int (Thread.id mon_thread)));
+  (*print_string ("Server thread: " ^ (string_of_int (Thread.id server_thread)));*)
+  read_loop active_downloads completed_downloads dl_mon
       
 let kill_daemon () =
   try
@@ -387,7 +393,8 @@ let _ =
         else
           print_usage ()
   with Sys_error e -> prerr_endline e
-  | exn -> print_string "Failed to launch daemon.\n"
+  | exn -> print_string ("Failed to launch daemon; exception " ^
+  Printexc.to_string exn ^ ".\n")
 (* This needs to be more robust; there will need to be a better string-matching
    procedure for it to really work without doing unexpected and terrible
    things. *)
