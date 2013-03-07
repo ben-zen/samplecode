@@ -9,10 +9,11 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 
 typedef struct queue_node {
   struct queue_node * next;
-  unsigned int long key;
+  int key;
 } q_node_t;
 
 typedef struct delay_queue_wrapper {
@@ -22,11 +23,11 @@ typedef struct delay_queue_wrapper {
   size_t size;
 } delay_queue;
 
-unsigned int long select_from_queues (delay_queue * priority, delay_queue* left,
+int select_from_queues (delay_queue * priority, delay_queue* left,
                                       delay_queue * right);
-void add_key_to_queue (unsigned int long new_key, delay_queue* queue);
-unsigned int long peek_head_key (delay_queue * queue);
-unsigned int long pop_head_key (delay_queue * queue);
+void add_key_to_queue (int new_key, delay_queue* queue);
+int peek_head_key (delay_queue * queue);
+int pop_head_key (delay_queue * queue);
 
 delay_queue construct_delay_queue (void) {
   delay_queue new_queue;
@@ -37,7 +38,7 @@ delay_queue construct_delay_queue (void) {
   return new_queue;
 }
 
-void add_key_to_queue (unsigned int long new_key, delay_queue* queue) {
+void add_key_to_queue (int new_key, delay_queue* queue) {
   q_node_t * new_elem = (q_node_t *) malloc (sizeof (q_node_t));
   if (new_elem) {
     new_elem->next = NULL;
@@ -56,15 +57,15 @@ void add_key_to_queue (unsigned int long new_key, delay_queue* queue) {
   /* Currently this fails silently which is not optimal. */
 }
   
-unsigned int long peek_head_key (delay_queue * queue) {
+int peek_head_key (delay_queue * queue) {
   if (queue->head) {
     return queue->head->key;
   }
   return 0;
 }
 
-unsigned int long pop_head_key (delay_queue * queue) {
-  unsigned int long k = 0;
+int pop_head_key (delay_queue * queue) {
+  int k = 0;
   if (queue->head) {
     k = queue->head->key;
     q_node_t * to_remove = queue->head;
@@ -92,9 +93,9 @@ void increment_delay (delay_queue * queue) {
   if (queue->head) queue->delay++;
 }
 
-unsigned int long select_from_queues (delay_queue * priority, delay_queue* left,
+int select_from_queues (delay_queue * priority, delay_queue* left,
                                       delay_queue * right) {
-  unsigned int long id = 0; /* This leads to the obvious note that no real ID
+  int id = 0; /* This leads to the obvious note that no real ID
                                       should be 0. */
   if (peek_head_key (priority)) {
     id = pop_head_key (priority);
@@ -126,4 +127,16 @@ unsigned int long select_from_queues (delay_queue * priority, delay_queue* left,
    currently has no access to tail for adding to queue.
  */
 int main (void) {
+  delay_queue priority = construct_delay_queue ();
+  delay_queue left = construct_delay_queue ();
+  delay_queue right = construct_delay_queue ();
+  int out_key;
+  add_key_to_queue (34, &priority);
+  add_key_to_queue (5, &left);
+  add_key_to_queue (7, &right);
+  add_key_to_queue (13, &priority);
+  add_key_to_queue (9, &left);
+  while ((out_key = select_from_queues (&priority, &left, &right))) {
+    printf ("%i\n",out_key);
+  }
 }
