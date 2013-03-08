@@ -23,6 +23,10 @@ typedef struct delay_queue_wrapper {
   size_t size;
 } delay_queue;
 
+delay_queue construct_delay_queue (void);
+int get_size (delay_queue * queue);
+int get_delay (delay_queue * queue);
+void increment_delay (delay_queue * queue);
 int select_from_queues (delay_queue * priority, delay_queue* left,
                                       delay_queue * right);
 void add_key_to_queue (int new_key, delay_queue* queue);
