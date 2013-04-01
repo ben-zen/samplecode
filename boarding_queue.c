@@ -27,6 +27,8 @@ delay_queue construct_delay_queue (void);
 int get_size (delay_queue * queue);
 int get_delay (delay_queue * queue);
 void increment_delay (delay_queue * queue);
+void decrement_delay (delay_queue * queue);
+void factorial_delay (delay_queue * queue);
 int select_from_queues (delay_queue * priority, delay_queue* left,
                                       delay_queue * right);
 void add_key_to_queue (int new_key, delay_queue* queue);
@@ -60,7 +62,34 @@ void add_key_to_queue (int new_key, delay_queue* queue) {
   }
   /* Currently this fails silently which is not optimal. */
 }
-  
+
+int get_size (delay_queue * queue) {
+  return queue->size;
+}
+
+int get_delay (delay_queue * queue) {
+  return queue->delay;
+}
+
+/* These functions fit the category of "modify queue delay function"; they exist
+ * because it is useful and necessary to provide different methods of
+ * implementing delays, depending on the desired delay behaviour.
+ */
+
+void increment_delay (delay_queue * queue) {
+  if (queue->head) queue->delay++;
+}
+
+void decrement_delay (delay_queue * queue) {
+  if (queue->head) queue->delay--;
+}
+
+void factorial_delay (delay_queue * queue) {
+  if (queue->head) {
+    queue->delay *= queue->size;
+  }
+}
+
 int peek_head_key (delay_queue * queue) {
   if (queue->head) {
     return queue->head->key;
@@ -80,21 +109,13 @@ int pop_head_key (delay_queue * queue) {
       queue->tail = NULL;
     }
   }
-  queue->delay = 0; /* This can later be moved to another function which keys
-  delays to how long since they've been satisfied. */
+  decrement_delay (queue);
+  /* This could also become a function pointer, at some later point, just to
+   * allow for more genericity.  The simple decrement is not optimal given that
+   * it will not necessarily set the delay to zero, and it's hard-coded.  This
+   * calls for a different approach sometime soon.
+   */
   return k;
-}
-
-int get_size (delay_queue * queue) {
-  return queue->size;
-}
-
-int get_delay (delay_queue * queue) {
-  return queue->delay;
-}
-
-void increment_delay (delay_queue * queue) {
-  if (queue->head) queue->delay++;
 }
 
 int select_from_queues (delay_queue * priority, delay_queue* left,
@@ -127,9 +148,7 @@ int select_from_queues (delay_queue * priority, delay_queue* left,
   return id;
 }
 
-/* Changes to anticipate: renaming functions to avoid mention of popping. Also
-   currently has no access to tail for adding to queue.
- */
+/* Changes to anticipate: renaming functions to avoid mention of popping. */
 int main (void) {
   delay_queue priority = construct_delay_queue ();
   delay_queue left = construct_delay_queue ();
@@ -140,6 +159,7 @@ int main (void) {
   add_key_to_queue (7, &right);
   add_key_to_queue (13, &priority);
   add_key_to_queue (9, &left);
+  increment_delay (&right);
   while ((out_key = select_from_queues (&priority, &left, &right))) {
     printf ("%i\n",out_key);
   }
