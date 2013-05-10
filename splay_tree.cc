@@ -57,15 +57,15 @@ class Splay_Tree {
         node * left_subtree = root->left;
         node * right_subtree = root->right;
         left_subtree = splay(key, left_subtree);
-    //     // Raises the largest key less than the removed key to the root of the
-    //     // tree.
-    //     if (left_subtree != NULL) {
-    //       left_subtree->right = right_subtree;
-    //       root = left_subtree;
-    //     } else {
-    //       root = right_subtree;
-    //     }
-    //   }
-    // }
-    // throw 1; // will also replace with a real exception.
+        // Raises the largest key less than the removed key to the root of the
+        // tree.
+        if (left_subtree != NULL) {
+          left_subtree->right = right_subtree;
+          root = left_subtree;
+        } else {
+          root = right_subtree;
+        }
+      }
+    }
+    throw 1; // will also replace with a real exception.
   }
