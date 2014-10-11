@@ -7,6 +7,6 @@
 (defconst function-annotation-keywords
   (list
   '("\\<\\(_\\(?:\\(?:In\\(?:_\\(?:opt\\(?:_z\\)?\\|reads\\(?:_\\(?:bytes\\(?:_opt\\)?\\|o\\(?:pt\\(?:_z\\)?\\|r_z\\)\\|to_ptr\\(?:_\\(?:opt\\(?:_z\\)?\\|z\\)\\)?\\|z\\)\\)?\\|z\\)\\|out\\(?:_\\(?:opt\\(?:_z\\)?\\|updates\\(?:_\\(?:all\\(?:_opt\\)?\\|bytes\\(?:_\\(?:all\\(?:_opt\\)?\\|opt\\|to\\(?:_opt\\)?\\)\\)?\\|opt\\(?:_z\\)?\\|to\\(?:_opt\\)?\\|z\\)\\)?\\|z\\)\\)?\\)?\\|Out\\(?:_\\(?:opt\\|writes\\(?:_\\(?:all\\(?:_opt\\)?\\|bytes\\(?:_\\(?:all\\(?:_opt\\)?\\|to\\(?:_opt\\)?\\)\\)?\\|opt\\(?:_z\\)?\\|to\\(?:_\\(?:opt\\|ptr\\(?:_\\(?:opt\\(?:_z\\)?\\|z\\)\\)?\\)\\)?\\|z\\)\\)?\\)\\)?\\)_\\)\\)\\>"
-  . font-lock-function-parameter-annotation-face))
+  . font-lock-builtin-face)) ;; Technically I would create my own face that inherits from font-lock-builtin-face, but this is easier in the short term.
   "Keywords for annotating function parameters.")
 
